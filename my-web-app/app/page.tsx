@@ -18,10 +18,12 @@ export default function Home() {
 
 
         <div className="flex flex-col gap-4">
-          <Separator className="!w-24 mx-auto" />
-          <p className="text-sm text-center text-muted-foreground">
+          <Separator className="!w-32 mx-auto" />
+          <div className="flex flex-row gap-4 text-sm text-muted-foreground">
             <Link href="/login" className="font-bold text-foreground">Login</Link>
-          </p>
+            <span>or</span>
+            <Link href="/register" className="font-bold text-foreground">Register</Link>
+          </div>
         </div>
       </div>
 
