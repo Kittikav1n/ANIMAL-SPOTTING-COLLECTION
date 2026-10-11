@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { Navigation } from "@/components/ui/createOC/navigation";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -18,8 +19,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${plusJakartaSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
-    </html>
+      <html lang="en" className={`${plusJakartaSans.variable} h-full antialiased`}>
+        <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
+          <Navigation />
+          <div className="flex-1 pb-24 md:pb-0 md:pl-20">
+            {children}
+          </div>
+        </body>
+      </html>
   );
 }
