@@ -19,13 +19,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-      <html lang="en" className={`${plusJakartaSans.variable} h-full antialiased`}>
-        <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
-          <Navigation />
-          <div className="flex-1 pb-24 md:pb-0 md:pl-20">
-            {children}
-          </div>
-        </body>
-      </html>
+    <html lang="en" className={`${plusJakartaSans.variable} h-full antialiased`}>
+      <body className="h-full flex flex-col font-sans bg-background text-foreground overflow-hidden">
+        <Navigation />
+        <div className="flex-1 flex flex-col h-full md:pl-20">
+          {children}
+        </div>
+      </body>
+    </html>
   );
 }
