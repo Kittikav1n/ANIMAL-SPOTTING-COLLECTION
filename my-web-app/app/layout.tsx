@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { Navigation } from "@/components/ui/createOC/navigation";
+import { Navigation } from "@/components/ui/createOC/Navigation";
+import MapBackground from "@/components/ui/createOC/MapBackground";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -20,9 +21,10 @@ export default function RootLayout({
 }>) {
   return (
       <html lang="en" className={`${plusJakartaSans.variable} h-full antialiased`}>
-        <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
+        <body className="min-h-full flex flex-col font-sans text-foreground relative">
+          <MapBackground />
           <Navigation />
-          <div className="flex-1 pb-24 md:pb-0 md:pl-20">
+          <div className="flex-1 pb-24 md:pb-0 md:pl-20 relative z-10">
             {children}
           </div>
         </body>
