@@ -4,8 +4,6 @@ import "./globals.css";
 import { Navigation } from "@/components/ui/createOC/Navigation";
 <<<<<<< Updated upstream
 import MapBackground from "@/components/ui/createOC/MapBackground";
-=======
->>>>>>> Stashed changes
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
