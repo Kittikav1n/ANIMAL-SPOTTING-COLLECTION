@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/ui/createOC/Navigation";
-<<<<<<< Updated upstream
 import MapBackground from "@/components/ui/createOC/MapBackground";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
