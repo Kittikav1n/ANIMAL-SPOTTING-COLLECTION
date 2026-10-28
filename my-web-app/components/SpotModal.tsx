@@ -114,7 +114,7 @@ export default function SpotModal({
             md:h-auto md:max-h-[85vh] md:rounded-2xl md:p-6
             ${view === "select-animal" ? "md:w-[600px]" : "md:w-auto"}
         `}
-        hideCloseButton={view === "select-animal"}
+        showCloseButton={view !== "select-animal"}
       >
         {/* Header หน้า Add spot กับ Add animal species */}
         <DialogHeader className="pb-3 border-b relative flex flex-row items-center justify-center min-h-[40px]">

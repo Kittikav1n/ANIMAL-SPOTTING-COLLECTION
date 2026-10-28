@@ -16,7 +16,7 @@ export function Navigation() {
 
   return (
     <>
-      <aside className="fixed left-0 top-0 hidden h-screen w-18 flex-col items-center gap-8 border-r border-border bg-card py-8 sm:flex z-50">
+      <aside className="fixed left-0 top-0 hidden h-screen w-20 flex-col items-center gap-8 bg-card py-8 sm:flex z-50">
         <div className="flex flex-col items-center gap-6">
           {navItems
             .filter((item) => !item.mobileOnly)

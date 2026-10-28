@@ -2,9 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 interface MapComponentProps {
   onRightClick: (lat: number, lng: number, address: string) => void;
+  onSpotClick?: () => void;
 }
 
 // 1. กำหนดชุดพิกัดขอบเขต Polygon ของพื้นที่
@@ -57,22 +59,25 @@ const isPointInPolygon = (lat: number, lng: number, polygon: [number, number][])
   return inside;
 };
 
-export default function MapComponent({ onRightClick }: MapComponentProps) {
+export default function MapComponent({ onRightClick, onSpotClick }: MapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (!containerRef.current) return;
     if (mapRef.current) return;
 
     const allowedPolygon = L.polygon(customPolygonCoords);
     const polygonBounds = allowedPolygon.getBounds();
     const paddedBounds = polygonBounds.pad(0.3);
 
-    const map = L.map("map", {
+    const map = L.map(containerRef.current, {
       center: pinCenter, 
       zoom: 17,               
       minZoom: 15,              
-      maxZoom: 19,             
+      maxZoom: 19,
+      zoomControl: false,             
     });
 
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -93,18 +98,39 @@ export default function MapComponent({ onRightClick }: MapComponentProps) {
       }
     });
 
+    // 🐾 หมุดตัวอย่างรูปแมวตามดีไซน์ UI
+    const catPinIcon = L.divIcon({
+      className: "custom-spot-pin",
+      html: `
+        <div style="width: 44px; height: 44px; border-radius: 12px; overflow: hidden; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; background: white; transition: transform 0.2s;">
+          <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=100&h=100&fit=crop" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+        </div>
+      `,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+    });
+
+    const sampleSpotMarker = L.marker([13.6512, 100.4943], { icon: catPinIcon }).addTo(map);
+    sampleSpotMarker.on("click", () => {
+      onSpotClick?.();
+    });
+
     mapRef.current = map;
+
+    // รีเฟรชขนาดแผนที่
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
 
     // 🖱️ ดักอีเวนต์คลิกขวา
     map.on("contextmenu", async (e) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
 
-      // 🔍 ตรวจสอบก่อนว่าจุดที่คลิกขวาอยู่ "ข้างใน" Zone หรือไม่
       const isInZone = isPointInPolygon(lat, lng, customPolygonCoords);
       if (!isInZone) {
         console.log("คลิกอยู่นอกพื้นที่โซนที่กำหนด");
-        return; // ถ้าอยู่ข้างนอก ให้หยุดการทำงานทันที (ไม่ปักหมุด ไม่เปิด Modal)
+        return;
       }
 
       if (markerRef.current) {
@@ -118,10 +144,11 @@ export default function MapComponent({ onRightClick }: MapComponentProps) {
     });
 
     return () => {
+      clearTimeout(timer);
       map.remove();
       mapRef.current = null;
     };
-  }, [onRightClick]);
+  }, [onRightClick, onSpotClick]);
 
   const getAddressFromLatLon = async (lat: number, lon: number): Promise<string> => {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
@@ -137,5 +164,5 @@ export default function MapComponent({ onRightClick }: MapComponentProps) {
     }
   };
 
-  return <div id="map" className="w-full h-full absolute inset-0 rounded-lg shadow-md z-10" />;
+  return <div ref={containerRef} id="map" className="w-full h-full absolute inset-0 z-10" />;
 }
