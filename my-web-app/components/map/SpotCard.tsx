@@ -54,7 +54,7 @@ export default function SpotCard({
   const visibleImages = isExpanded ? images : images.slice(0, 2);
 
   return (
-    <div className="w-[340px] lg:w-[360px] h-[520px] bg-card/95 backdrop-blur-md text-foreground rounded-3xl shadow-2xl border border-border/80 p-5 transition-all flex flex-col justify-between">
+    <div className="w-[340px] lg:w-[360px] h-fit max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar bg-card/95 backdrop-blur-md text-foreground rounded-3xl shadow-2xl border border-border/80 p-5 transition-all flex flex-col justify-between">
       {/* Upper Content */}
       <div className="flex flex-col min-h-0">
         {/* Header: Title + Close Button */}
@@ -97,9 +97,7 @@ export default function SpotCard({
         {images.length > 0 && (
           <div className="flex flex-col gap-2 min-h-0 flex-1">
             <div
-              className={`grid grid-cols-2 gap-x-3 gap-y-3 transition-all duration-300 ${
-                isExpanded ? "max-h-[260px] overflow-y-auto pr-1 custom-scrollbar" : ""
-              }`}
+              className={`grid grid-cols-2 gap-3 transition-all duration-300 ${isExpanded ? "h-auto" : "h-[200px]"}`}
             >
               {visibleImages.map((imgUrl, idx) => {
                 const isSecondImage = idx === 1;
