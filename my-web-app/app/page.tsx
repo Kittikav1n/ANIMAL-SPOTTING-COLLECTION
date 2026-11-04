@@ -9,6 +9,7 @@ import FilterDropdown from "@/components/map/FilterDropdown";
 import SpotCard from "@/components/map/SpotCard";
 import MobileSpotDrawer from "@/components/map/MobileSpotDrawer";
 import SpotPhotoViewerModal from "@/components/map/SpotPhotoViewerModal";
+import DesktopPhotoViewer from "@/components/map/DesktopPhotoViewer";
 import { SpotPinData, SAMPLE_SPOTS } from "@/components/MapComponent";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
@@ -33,6 +34,7 @@ export default function Home() {
   // Full-screen photo viewer state (Screen 5)
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [activePhotoList, setActivePhotoList] = useState<string[]>([]);
+  const [initialPhotoIndex, setInitialPhotoIndex] = useState(0);
 
   // Right-click to add spot
   const [addSpotCoord, setAddSpotCoord] = useState<{
@@ -57,11 +59,13 @@ export default function Home() {
     setShowSpotCard(true);
   };
 
-  const handleOpenPhotoViewer = (photoUrl: string) => {
+  const handleOpenPhotoViewer = (photoUrl: string, index = 0) => {
     if (selectedSpot && selectedSpot.images.length > 0) {
       setActivePhotoList(selectedSpot.images);
+      setInitialPhotoIndex(index);
     } else {
       setActivePhotoList([photoUrl]);
+      setInitialPhotoIndex(0);
     }
     setPhotoViewerOpen(true);
   };
@@ -82,13 +86,33 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 2. Desktop Spot Card (Floating on Top-Left on md: screens) */}
+      {/* 2. Desktop Split View: Spot Card on Left + Big Photo Viewer on Right (md: screens) */}
       {showSpotCard && (
-        <div className="absolute top-20 left-4 z-20 hidden md:block animate-in fade-in zoom-in-95 duration-200">
-          <SpotCard
-            data={selectedSpot || undefined}
-            onClose={() => setShowSpotCard(false)}
-          />
+        <div className="absolute top-20 left-4 z-20 hidden md:flex items-start gap-3 pointer-events-none">
+          <div className="pointer-events-auto shrink-0 animate-in fade-in zoom-in-95 duration-200">
+            <SpotCard
+              data={selectedSpot || undefined}
+              onClose={() => {
+                setShowSpotCard(false);
+                setPhotoViewerOpen(false);
+              }}
+              onPhotoClick={handleOpenPhotoViewer}
+              activePhotoIndex={photoViewerOpen ? initialPhotoIndex : undefined}
+            />
+          </div>
+
+          {/* Balanced Photo Viewer displayed side-by-side to the right */}
+          {photoViewerOpen && (
+            <div className="pointer-events-auto shrink-0">
+              <DesktopPhotoViewer
+                isOpen={photoViewerOpen}
+                onClose={() => setPhotoViewerOpen(false)}
+                images={activePhotoList}
+                initialIndex={initialPhotoIndex}
+                onIndexChange={setInitialPhotoIndex}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -101,12 +125,15 @@ export default function Home() {
         onPhotoClick={handleOpenPhotoViewer}
       />
 
-      {/* 4. Full-Screen Photo Viewer Modal (Screen 5) */}
-      <SpotPhotoViewerModal
-        isOpen={photoViewerOpen}
-        onClose={() => setPhotoViewerOpen(false)}
-        images={activePhotoList}
-      />
+      {/* 4. Full-Screen Photo Viewer Modal (Mobile only) */}
+      <div className="block md:hidden">
+        <SpotPhotoViewerModal
+          isOpen={photoViewerOpen}
+          onClose={() => setPhotoViewerOpen(false)}
+          images={activePhotoList}
+          initialIndex={initialPhotoIndex}
+        />
+      </div>
 
       {/* 5. Interactive Leaflet Map with Zoom In/Out Category & Photo Breakout */}
       <div className="flex-1 w-full relative h-full">

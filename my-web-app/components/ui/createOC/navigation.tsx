@@ -42,7 +42,7 @@ export function Navigation() {
         </div>
       </aside>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-18 items-center justify-around border-t border-border bg-card/95 px-4 backdrop-blur-md sm:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-[72px] items-center justify-around border-t border-border bg-card/95 px-4 backdrop-blur-md sm:hidden">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href || (item.href === "/map" && pathname === "/")
