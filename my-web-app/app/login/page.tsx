@@ -27,14 +27,14 @@ export default function Login() {
                 <div
                     role="img"
                     aria-label="Illustrated KMUTT spotting map with goose, cat, squirrel, and turtle icons"
-                    className="aspect-[4/5] bg-[#E9ECE5] bg-cover bg-center bg-no-repeat lg:aspect-auto lg:min-h-[760px]"
+                    className="hidden bg-[#E9ECE5] bg-cover bg-center bg-no-repeat lg:block lg:min-h-[760px]"
                     style={{ backgroundImage: `url(${registerMap.src})` }}
                 />
 
-                <section aria-labelledby="login-title" className="flex min-h-[780px] items-center justify-center px-6 py-12 sm:px-10 lg:px-10 lg:py-16">
+                <section aria-labelledby="login-title" className="flex min-h-svh items-center justify-center px-6 py-8 sm:min-h-0 sm:px-10 sm:py-10 lg:min-h-[780px] lg:px-10 lg:py-16">
                     <div className="w-full max-w-[410px]">
-                        <header className="mb-12 text-center">
-                            <h1 id="login-title" className="text-[38px] font-semibold leading-[1.05] tracking-tight text-[#17251A]">
+                        <header className="mb-8 text-center lg:mb-12">
+                            <h1 id="login-title" className="text-[32px] font-semibold leading-[1.05] tracking-tight text-[#17251A] sm:text-[38px]">
                                 ANIMAL<br />SPOTTING<br />COLLECTION
                             </h1>
                             <p className="mt-3 text-sm text-[#6F6F7C]">Welcome back to your collection.</p>
@@ -44,7 +44,7 @@ export default function Login() {
                             <div className="flex flex-col gap-6">
                                 <div className="flex flex-col gap-1.5">
                                     <label htmlFor="username" className="text-xs font-medium">Username or Email</label>
-                                    <InputGroup className="h-10 rounded-md border-[#CBD5E1] bg-white">
+                                    <InputGroup className="h-11 rounded-md border-[#CBD5E1] bg-white lg:h-10">
                                         <InputGroupAddon><Mail className="text-[#92999E]" /></InputGroupAddon>
                                         <InputGroupInput
                                             id="username"
@@ -53,14 +53,14 @@ export default function Login() {
                                             placeholder="Username or email"
                                             autoComplete="username"
                                             required
-                                            className="text-xs placeholder:text-[#A7B4C5]"
+                                            className="text-base placeholder:text-[#A7B4C5] lg:text-xs"
                                         />
                                     </InputGroup>
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
                                     <label htmlFor="password" className="text-xs font-medium">Password</label>
-                                    <InputGroup className="h-10 rounded-md border-[#CBD5E1] bg-white">
+                                    <InputGroup className="h-11 rounded-md border-[#CBD5E1] bg-white lg:h-10">
                                         <InputGroupAddon><Lock className="text-[#92999E]" /></InputGroupAddon>
                                         <InputGroupInput
                                             id="password"
@@ -69,7 +69,7 @@ export default function Login() {
                                             placeholder="Enter your password"
                                             autoComplete="current-password"
                                             required
-                                            className="text-xs placeholder:text-[#A7B4C5]"
+                                            className="text-base placeholder:text-[#A7B4C5] lg:text-xs"
                                         />
                                         <InputGroupAddon align="inline-end">
                                             <InputGroupButton
@@ -84,13 +84,13 @@ export default function Login() {
                                 </div>
                             </div>
 
-                            <Button type="submit" className="mt-9 h-10 w-full rounded-md bg-[#526E4E] text-sm text-white hover:bg-[#42573F]">
+                            <Button type="submit" className="mt-7 h-11 w-full rounded-md bg-[#526E4E] text-sm text-white hover:bg-[#42573F] lg:mt-9 lg:h-10">
                                 Sign In
                             </Button>
                             <p role="status" className="mt-3 text-center text-xs text-[#AE3C32]">{message}</p>
                         </form>
 
-                        <p className="mt-9 text-center text-xs text-[#7D8BA1]">
+                        <p className="mt-7 text-center text-xs text-[#7D8BA1] lg:mt-9">
                             Don&apos;t have an account?{" "}
                             <Link href="/register" className="font-semibold text-[#B83D2E] hover:underline">Create Account</Link>
                         </p>
