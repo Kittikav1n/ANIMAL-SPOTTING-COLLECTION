@@ -13,6 +13,7 @@ export interface SpotPinData {
   category: "Cat" | "Dog" | "Bird";
   lat: number;
   lng: number;
+  address: string;
   photoUrl: string;
 }
 
@@ -36,6 +37,7 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
     category: "Cat",
     lat: 13.6512,
     lng: 100.494,
+    address:'',
     photoUrl:
       "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=120&h=120&fit=crop",
   },
@@ -52,6 +54,7 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
     category: "Cat",
     lat: 13.6514,
     lng: 100.4943,
+    address:'',
     photoUrl:
       "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=120&h=120&fit=crop",
   },
@@ -67,6 +70,7 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
     category: "Cat",
     lat: 13.651,
     lng: 100.4944,
+    address:'',
     photoUrl:
       "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=120&h=120&fit=crop",
   },
@@ -82,6 +86,7 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
     category: "Cat",
     lat: 13.6535,
     lng: 100.4925,
+    address:'',
     photoUrl:
       "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=120&h=120&fit=crop",
   },

@@ -5,6 +5,7 @@ import { X, ChevronDown } from "lucide-react";
 
 export interface SpotCardData {
   title: string;
+  address?: string;
   author: {
     name: string;
     avatar?: string;

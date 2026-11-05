@@ -22,11 +22,14 @@ const MapComponent = dynamic(() => import("@/components/MapComponent"), {
 
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
+  const [spots, setSpots] = useState<SpotPinData[]>(SAMPLE_SPOTS);
   const [showSpotCard, setShowSpotCard] = useState(true);
   const [selectedSpot, setSelectedSpot] = useState<SpotPinData | null>(
-    SAMPLE_SPOTS[0]
+    SAMPLE_SPOTS[0],
   );
-  const [selectedCategory, setSelectedCategory] = useState<string | null>("Cat");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    "Cat",
+  );
   const [search, setSearch] = useState("");
   const [activeAnimal, setActiveAnimal] = useState("All");
 
@@ -64,6 +67,55 @@ export default function Home() {
       setActivePhotoList([photoUrl]);
     }
     setPhotoViewerOpen(true);
+  };
+
+  const handleAddNewSpot = (newSpotData: {
+    lat: number;
+    lng: number;
+    address: string;
+    description: string;
+    animals: any[];
+    images: File[];
+  }) => {
+    // 1. แปลงไฟล์รูปภาพเป็น Object URL สำหรับพรีวิวชั่วคราว
+    console.log("ได้รับข้อมูลแล้ว:", newSpotData);
+    const imageUrls = newSpotData.images.map((file) =>
+      URL.createObjectURL(file),
+    );
+
+    // 2. สร้างโครงสร้าง Spot ใหม่
+    const createdSpot: SpotPinData = {
+      id: Date.now().toString(),
+      title:
+        newSpotData.animals.length > 0
+          ? `${newSpotData.animals[0].name} Spot`
+          : "New Animal Spot",
+      category:
+        newSpotData.animals.length > 0
+          ? newSpotData.animals[0].name
+          : "General",
+      lat: newSpotData.lat,
+      lng: newSpotData.lng,
+      address: newSpotData.address,
+      description: newSpotData.description,
+      author: { name: "Achirakorn Thawontantikun", avatar: "A" },
+      images:
+        imageUrls.length > 0
+          ? imageUrls
+          : [
+              "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
+            ],
+      photoUrl: imageUrls[0],
+    };
+
+    // 3. อัปเดต State รายการ Spot (ทำให้แผนที่และระบบรู้ว่ามีหมุดเพิ่มขึ้น)
+    setSpots((prev) => [...prev, createdSpot]);
+
+    // 4. ตั้งค่าให้เลือกแสดง Spot ใหม่นี้ทันที
+    setSelectedSpot(createdSpot);
+    setShowSpotCard(true);
+
+    console.log("🎉 บันทึก Spot สำเร็จ (Mock Data):", createdSpot);
   };
 
   return (

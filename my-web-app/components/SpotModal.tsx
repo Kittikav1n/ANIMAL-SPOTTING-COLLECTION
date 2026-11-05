@@ -27,11 +27,9 @@ import {
   ArrowLeft,
   Search,
   X,
+  Edit,
 } from "lucide-react";
-import { 
-  Card, 
-  CardContent 
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
@@ -52,6 +50,14 @@ interface SpotModalProps {
     lng: number;
     address: string;
   } | null;
+  onSaveSpot: (data: {
+    lat: number;
+    lng: number;
+    address: string;
+    description: string;
+    animals: AnimalItem[];
+    images: File[];
+  }) => void;
 }
 
 const INITIAL_ANIMALS: AnimalItem[] = [
@@ -67,7 +73,9 @@ export default function SpotModal({
   isOpen,
   onClose,
   spotData,
+  onSaveSpot,
 }: SpotModalProps) {
+  console.log("ค่าของ onSaveSpot ที่รับเข้ามาคือ:", onSaveSpot);
   const [view, setView] = useState<"main" | "select-animal">("main");
   const [description, setDescription] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
@@ -76,6 +84,8 @@ export default function SpotModal({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAnimals, setSelectedAnimals] = useState<AnimalItem[]>([]);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [isEditingImages, setIsEditingImages] = useState(false);
 
   // เพิ่มสัตว์ลงในรายการที่เลือก
   const handleSelectAnimal = (animal: AnimalItem) => {
@@ -94,11 +104,37 @@ export default function SpotModal({
       animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const handleSave = () => {};
+  const handleSave = () => {
+    if (!spotData) {
+      alert("ไม่พบข้อมูลพิกัดตำแหน่งบนแผนที่");
+      return;
+    }
+
+    // ส่งข้อมูลทั้งหมดกลับไปที่ฟังก์ชัน handleSave ใน page.tsx
+    onSaveSpot({
+      lat: spotData.lat,
+      lng: spotData.lng,
+      address: spotData.address,
+      description: description,
+      animals: selectedAnimals,
+      images: selectedImages,
+    });
+
+    // เคลียร์ค่าและปิด Modal
+    setDescription("");
+    setSelectedAnimals([]);
+    setSelectedImages([]);
+    onClose(false);
+  };
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      setView("main"); 
+      setView("main");
+      setDescription("");
+      setSelectedAnimals([]);
+      setSelectedImages([]);
+      setIsEditingImages(false);
+      setSearchQuery("");
     }
     onClose(open);
   };
@@ -111,8 +147,7 @@ export default function SpotModal({
             flex flex-col bg-white shadow-2xl overflow-hidden outline-none duration-100
             fixed inset-0 h-[100dvh] w-full max-w-none rounded-none p-4 translate-x-0 translate-y-0
             md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
-            md:h-auto md:max-h-[85vh] md:rounded-2xl md:p-6
-            ${view === "select-animal" ? "md:w-[600px]" : "md:w-auto"}
+            md:h-auto md:max-h-[120dvh] md:max-w-[700px] md:rounded-2xl md:p-6
         `}
         showCloseButton={view !== "select-animal"}
       >
@@ -136,9 +171,9 @@ export default function SpotModal({
         {view === "main" && (
           <>
             {spotData && (
-            //   Profile
+              //   Profile
               <div className="flex flex-1 min-h-0 flex-col md:max-h-[70vh] overflow-y-auto gap-4 pb-8 md:pb-1 mt-2 w-full pl-1 pr-2 custom-scrollbar">
-                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border w-full max-w-sm md:max-w-2xl">
+                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border w-full">
                   <div className="w-10 h-10 rounded-full bg-orange-200 flex items-center justify-center text-xs font-bold flex-shrink-0">
                     A
                   </div>
@@ -167,9 +202,9 @@ export default function SpotModal({
                     ))}
                   </div>
                 )}
-                
+
                 {/* Spot Description */}
-                <div className="w-full max-w-sm md:max-w-2xl min-h-[250px] md:min-h-full rounded-xl border border-slate-200 p-3 overflow-y-auto custom-scrollbar bg-white focus-within:ring-2 focus-within:ring-emerald-700 flex flex-col">
+                <div className="w-full min-h-[250px] md:min-h-full rounded-xl border border-slate-200 p-3 overflow-y-auto custom-scrollbar bg-white focus-within:ring-2 focus-within:ring-emerald-700 flex flex-col">
                   <Textarea
                     placeholder="Describe or share something about your experience"
                     className="w-full flex-1 resize-none border-0 bg-transparent p-1 focus-visible:ring-0 shadow-none focus-visible:outline-none custom-scrollbar"
@@ -177,6 +212,77 @@ export default function SpotModal({
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
+                {selectedImages.length > 0 && (
+                  <div className="flex flex-col gap-2 w-full">
+                    {/* ปุ่ม Edit All (แสดงเฉพาะหน้าจอ Desktop หรือ Tablet แนวนอนขึ้นไป) */}
+                    <div className="hidden md:flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-500">
+                        Photos ({selectedImages.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingImages(true)}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition cursor-pointer border border-slate-200"
+                      >
+                        <span className="text-xs">
+                          <Edit className="w-4 h-4 text-emerald-700"></Edit>
+                        </span>{" "}
+                        Edit All
+                      </button>
+                    </div>
+
+                    {/* Pattern Grid สำหรับแสดงรูปภาพ (จำกัดโชว์สูงสุด 5 รูป พร้อม badge +N รูปที่เหลือ) */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 w-full">
+                      {selectedImages.slice(0, 5).map((file, index) => {
+                        const isLastVisible = index === 4;
+                        const remainingCount = selectedImages.length - 5;
+
+                        return (
+                          <div
+                            key={index}
+                            onClick={() => {
+                              // ถ้ากดรูปที่ 5 (ที่มี +N) หรือรูปไหนก็ตาม สามารถกดเพื่อเปิดหน้า Edit All ได้
+                              setIsEditingImages(true);
+                            }}
+                            className={`relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer group ${
+                              // ดีไซน์ Pattern: ถ้ารูปแรกในมือถือให้ออกแบบเด่น หรือใช้ Grid เท่ากันสวยๆ
+                              index === 0
+                                ? "col-span-2 md:col-span-1 h-36 md:h-28"
+                                : "h-28 md:h-28"
+                            }`}
+                          >
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={`preview-${index}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                            />
+
+                            {/* ถ้าเกิน 5 รูป และเป็นรูปที่ 5 ให้แสดง Overlay มัว พร้อมข้อความ +N */}
+                            {isLastVisible && remainingCount > 0 && (
+                              <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center text-white font-bold text-lg">
+                                +{remainingCount}
+                              </div>
+                            )}
+
+                            {/* ปุ่มลบรูปเล็กๆ (เฉพาะตอนยังไม่กดเข้าหน้า Edit All) */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation(); // ป้องกันไม่ให้กดเปิดหน้า Edit ตอนกดปุ่มลบ
+                                setSelectedImages((prev) =>
+                                  prev.filter((_, i) => i !== index),
+                                );
+                              }}
+                              className="absolute top-1.5 right-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -256,8 +362,8 @@ export default function SpotModal({
                           mode="single"
                           selected={selectedDate}
                           onSelect={(date) => {
-                            setSelectedDate(date); 
-                            setIsCalendarOpen(false); 
+                            setSelectedDate(date);
+                            setIsCalendarOpen(false);
                           }}
                           className="p-0"
                         />
@@ -266,8 +372,8 @@ export default function SpotModal({
                   </PopoverContent>
                 </Popover>
               </div>
-            
-            {/* Save Btn */}
+
+              {/* Save Btn */}
               <Button
                 onClick={handleSave}
                 className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 rounded-xl font-medium"
@@ -276,6 +382,66 @@ export default function SpotModal({
               </Button>
             </div>
           </>
+        )}
+        {/* 🖥️ หน้าต่างย่อย: Edit Image / Video (เปิดเมื่อกด Edit All หรือกดที่รูป +N) */}
+        {isEditingImages && (
+          <div className="absolute inset-0 bg-white z-50 flex flex-col p-4 md:p-6 animate-in fade-in zoom-in-95 duration-150">
+            {/* Header ของหน้า Edit */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <button
+                type="button"
+                onClick={() => setIsEditingImages(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-full transition text-slate-700 cursor-pointer flex items-center gap-1"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="text-xs font-medium hidden md:inline">
+                  Back
+                </span>
+              </button>
+              <h3 className="text-base font-bold text-slate-800">
+                Edit Image/Video
+              </h3>
+              <Button
+                type="button"
+                onClick={() => setIsEditingImages(false)}
+                className="bg-emerald-800 hover:bg-emerald-900 text-white px-4 py-1.5 h-8 rounded-lg text-xs font-medium"
+              >
+                Accept
+              </Button>
+            </div>
+
+            {/* รายการรูปภาพทั้งหมดในโหมดแก้ไข (แสดงรูปเต็มๆ พร้อมปุ่มกากบาทมุมขวาบนของแต่ละรูป) */}
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedImages.map((file, index) => (
+                <div
+                  key={index}
+                  className="relative w-full h-56 md:h-48 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm group"
+                >
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={`edit-preview-${index}`}
+                    className="w-full h-full object-cover"
+                  />
+                  {/* ปุ่มกากบาทลบรูป (ตำแหน่งมุมขวาบนแบบในภาพตัวอย่าง) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedImages((prev) =>
+                        prev.filter((_, i) => i !== index),
+                      );
+                      // ถ้าลบจนหมด ให้ปิดหน้า Edit อัตโนมัติ
+                      if (selectedImages.length <= 1) {
+                        setIsEditingImages(false);
+                      }
+                    }}
+                    className="absolute top-3 right-3 bg-black/70 hover:bg-red-600 text-white rounded-full p-1.5 transition shadow-lg cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {view === "select-animal" && (
@@ -372,10 +538,13 @@ export default function SpotModal({
           type="file"
           accept="image/*"
           capture="environment"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) console.log("Camera image:", file);
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+              setSelectedImages((prev) => [...prev, ...files]);
+            }
           }}
         />
         <input
@@ -383,9 +552,12 @@ export default function SpotModal({
           type="file"
           accept="image/*"
           className="hidden"
+          multiple
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) console.log("Gallery image:", file);
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+              setSelectedImages((prev) => [...prev, ...files]);
+            }
           }}
         />
       </DialogContent>
