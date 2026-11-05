@@ -37,7 +37,7 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
     category: "Cat",
     lat: 13.6512,
     lng: 100.494,
-    address:'',
+    address: "",
     photoUrl:
       "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=120&h=120&fit=crop",
   },
@@ -54,7 +54,7 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
     category: "Cat",
     lat: 13.6514,
     lng: 100.4943,
-    address:'',
+    address: "",
     photoUrl:
       "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=120&h=120&fit=crop",
   },
@@ -70,7 +70,7 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
     category: "Cat",
     lat: 13.651,
     lng: 100.4944,
-    address:'',
+    address: "",
     photoUrl:
       "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=120&h=120&fit=crop",
   },
@@ -86,13 +86,14 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
     category: "Cat",
     lat: 13.6535,
     lng: 100.4925,
-    address:'',
+    address: "",
     photoUrl:
       "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=120&h=120&fit=crop",
   },
 ];
 
 interface MapComponentProps {
+  spots: SpotPinData[];
   onRightClick: (lat: number, lng: number, address: string) => void;
   onSelectSpot?: (spot: SpotPinData) => void;
   onSelectCategory?: (category: string) => void;
@@ -138,7 +139,7 @@ function getDistanceInMeters(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const R = 6371e3; // Earth radius in meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -169,7 +170,7 @@ interface SpotCluster {
 
 function clusterSpotsByDistance(
   spots: SpotPinData[],
-  radiusMeters: number
+  radiusMeters: number,
 ): SpotCluster[] {
   const clusters: SpotCluster[] = [];
 
@@ -188,7 +189,7 @@ function clusterSpotsByDistance(
         (c) =>
           c.category === category &&
           getDistanceInMeters(c.centerLat, c.centerLng, spot.lat, spot.lng) <=
-            radiusMeters
+            radiusMeters,
       );
 
       if (matchingCluster) {
@@ -218,7 +219,7 @@ function clusterSpotsByDistance(
 const isPointInPolygon = (
   lat: number,
   lng: number,
-  polygon: [number, number][]
+  polygon: [number, number][],
 ) => {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -228,14 +229,14 @@ const isPointInPolygon = (
       yj = polygon[j][0];
 
     const intersect =
-      yi > lat !== yj > lat &&
-      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+      yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
 };
 
 export default function MapComponent({
+  spots,
   onRightClick,
   onSelectSpot,
   onSelectCategory,
@@ -244,6 +245,8 @@ export default function MapComponent({
   const markerRef = useRef<L.Marker | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const spotsLayerRef = useRef<L.LayerGroup | null>(null);
+  const spotsRef = useRef(spots);
+  spotsRef.current = spots;
 
   // Keep callback references stable across re-renders to prevent map re-mounting
   const onRightClickRef = useRef(onRightClick);
@@ -255,6 +258,106 @@ export default function MapComponent({
 
   // Track cluster/photo breakout state so we only redraw when crossing threshold
   const currentModeRef = useRef<"cluster" | "photo" | null>(null);
+
+  // 🔄 Update markers based on Zoom Level & Distance Clustering (100m)
+  const updateMarkers = (force = false) => {
+    if (!spotsLayerRef.current) return;
+
+    if (!mapRef.current || !spotsLayerRef.current) return;
+    const map = mapRef.current;
+    const currentZoom = map.getZoom();
+    const isZoomedIn = currentZoom >= ZOOM_BREAKOUT_THRESHOLD;
+    const targetMode = isZoomedIn ? "photo" : "cluster";
+
+    // If mode hasn't changed (and not forced), keep existing markers to avoid flashing
+    if (!force && currentModeRef.current === targetMode) return;
+    currentModeRef.current = targetMode;
+
+    spotsLayerRef.current.clearLayers();
+
+    if (!isZoomedIn) {
+      // =========================================================================
+      // 🐾 ZOOM OUT (< 18): Group nearby animals within 100m into 1 Category Pin
+      // =========================================================================
+      const clusters = clusterSpotsByDistance(
+        spotsRef.current,
+        CLUSTER_DISTANCE_METERS,
+      );
+
+      clusters.forEach((cluster) => {
+        const count = cluster.spots.length;
+
+        // Category Icon: Blue circle with animal silhouette + count badge if multiple
+        const categoryIcon = L.divIcon({
+          className: "category-cluster-pin",
+          html: `
+              <div style="position: relative; width: 42px; height: 42px; border-radius: 50%; background: #0284c7; border: 2.5px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s;">
+                <!-- Orange animal silhouette matching design screenshot -->
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fb923c" stroke="#ea580c" stroke-width="1.5">
+                  <path d="M12 5c-4 0-7 3-7 7 0 2.5 1.5 4.5 3.5 5.5.5.3 1 .5 1.5.5h4c.5 0 1-.2 1.5-.5 2-1 3.5-3 3.5-5.5 0-4-3-7-7-7z"/>
+                  <path d="M7 6L5 2l4 2.5M17 6l2-4-4 2.5"/>
+                </svg>
+                ${
+                  count > 1
+                    ? `<span style="position: absolute; top: -3px; right: -3px; background: #ea580c; color: white; font-size: 10px; font-weight: bold; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">${count}</span>`
+                    : ""
+                }
+              </div>
+            `,
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
+        });
+
+        const marker = L.marker([cluster.centerLat, cluster.centerLng], {
+          icon: categoryIcon,
+        });
+
+        marker.on("click", () => {
+          // Clicking cluster: Smoothly zooms in to break out into individual photo pins!
+          map.flyTo([cluster.centerLat, cluster.centerLng], 18, {
+            duration: 0.8,
+          });
+          onSelectCategoryRef.current?.(cluster.category);
+          if (cluster.spots.length === 1) {
+            onSelectSpotRef.current?.(cluster.spots[0]);
+          }
+        });
+
+        spotsLayerRef.current?.addLayer(marker);
+      });
+    } else {
+      // =========================================================================
+      // 📷 ZOOM IN (>= 18): Breakout! Show individual photo pins at exact GPS
+      // =========================================================================
+      spotsRef.current.forEach((spot) => {
+        // check undefined
+        const validPhotoUrl = spot.photoUrl || spot.images?.[0] || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop";
+
+        const photoPinIcon = L.divIcon({
+          className: "photo-spot-pin",
+          html: `
+              <div style="width: 48px; height: 48px; border-radius: 12px; overflow: hidden; border: 2.5px solid white; box-shadow: 0 4px 14px rgba(0,0,0,0.35); cursor: pointer; background: white; transition: transform 0.2s;">
+                <img src="${validPhotoUrl}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+              </div>
+            `,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24],
+        });
+
+        const marker = L.marker([spot.lat, spot.lng], {
+          icon: photoPinIcon,
+        });
+
+        marker.on("click", () => {
+          onSelectSpotRef.current?.(spot);
+        });
+
+        spotsLayerRef.current?.addLayer(marker);
+      });
+    }
+  };
+
+  console.log("spots: ", spots);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -298,99 +401,6 @@ export default function MapComponent({
     const spotsLayer = L.layerGroup().addTo(map);
     spotsLayerRef.current = spotsLayer;
 
-    // 🔄 Update markers based on Zoom Level & Distance Clustering (100m)
-    const updateMarkers = (force = false) => {
-      if (!spotsLayerRef.current) return;
-
-      const currentZoom = map.getZoom();
-      const isZoomedIn = currentZoom >= ZOOM_BREAKOUT_THRESHOLD;
-      const targetMode = isZoomedIn ? "photo" : "cluster";
-
-      // If mode hasn't changed (and not forced), keep existing markers to avoid flashing
-      if (!force && currentModeRef.current === targetMode) return;
-      currentModeRef.current = targetMode;
-
-      spotsLayerRef.current.clearLayers();
-
-      if (!isZoomedIn) {
-        // =========================================================================
-        // 🐾 ZOOM OUT (< 18): Group nearby animals within 100m into 1 Category Pin
-        // =========================================================================
-        const clusters = clusterSpotsByDistance(
-          SAMPLE_SPOTS,
-          CLUSTER_DISTANCE_METERS
-        );
-
-        clusters.forEach((cluster) => {
-          const count = cluster.spots.length;
-
-          // Category Icon: Blue circle with animal silhouette + count badge if multiple
-          const categoryIcon = L.divIcon({
-            className: "category-cluster-pin",
-            html: `
-              <div style="position: relative; width: 42px; height: 42px; border-radius: 50%; background: #0284c7; border: 2.5px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s;">
-                <!-- Orange animal silhouette matching design screenshot -->
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fb923c" stroke="#ea580c" stroke-width="1.5">
-                  <path d="M12 5c-4 0-7 3-7 7 0 2.5 1.5 4.5 3.5 5.5.5.3 1 .5 1.5.5h4c.5 0 1-.2 1.5-.5 2-1 3.5-3 3.5-5.5 0-4-3-7-7-7z"/>
-                  <path d="M7 6L5 2l4 2.5M17 6l2-4-4 2.5"/>
-                </svg>
-                ${
-                  count > 1
-                    ? `<span style="position: absolute; top: -3px; right: -3px; background: #ea580c; color: white; font-size: 10px; font-weight: bold; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">${count}</span>`
-                    : ""
-                }
-              </div>
-            `,
-            iconSize: [42, 42],
-            iconAnchor: [21, 21],
-          });
-
-          const marker = L.marker([cluster.centerLat, cluster.centerLng], {
-            icon: categoryIcon,
-          });
-
-          marker.on("click", () => {
-            // Clicking cluster: Smoothly zooms in to break out into individual photo pins!
-            map.flyTo([cluster.centerLat, cluster.centerLng], 18, {
-              duration: 0.8,
-            });
-            onSelectCategoryRef.current?.(cluster.category);
-            if (cluster.spots.length === 1) {
-              onSelectSpotRef.current?.(cluster.spots[0]);
-            }
-          });
-
-          spotsLayerRef.current?.addLayer(marker);
-        });
-      } else {
-        // =========================================================================
-        // 📷 ZOOM IN (>= 18): Breakout! Show individual photo pins at exact GPS
-        // =========================================================================
-        SAMPLE_SPOTS.forEach((spot) => {
-          const photoPinIcon = L.divIcon({
-            className: "photo-spot-pin",
-            html: `
-              <div style="width: 48px; height: 48px; border-radius: 12px; overflow: hidden; border: 2.5px solid white; box-shadow: 0 4px 14px rgba(0,0,0,0.35); cursor: pointer; background: white; transition: transform 0.2s;">
-                <img src="${spot.photoUrl}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
-              </div>
-            `,
-            iconSize: [48, 48],
-            iconAnchor: [24, 24],
-          });
-
-          const marker = L.marker([spot.lat, spot.lng], {
-            icon: photoPinIcon,
-          });
-
-          marker.on("click", () => {
-            onSelectSpotRef.current?.(spot);
-          });
-
-          spotsLayerRef.current?.addLayer(marker);
-        });
-      }
-    };
-
     // Initial draw
     updateMarkers(true);
 
@@ -432,9 +442,20 @@ export default function MapComponent({
     };
   }, []);
 
+  //updated spot real-time
+  useEffect(() => {
+    if (mapRef.current && typeof updateMarkers === "function") {
+      if (markerRef.current) {
+      markerRef.current.remove();
+      markerRef.current = null;
+    }
+      updateMarkers(true);
+    }
+  }, [spots]);
+
   const getAddressFromLatLon = async (
     lat: number,
-    lon: number
+    lon: number,
   ): Promise<string> => {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
     try {

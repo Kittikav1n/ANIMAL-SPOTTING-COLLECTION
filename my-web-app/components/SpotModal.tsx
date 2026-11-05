@@ -75,7 +75,6 @@ export default function SpotModal({
   spotData,
   onSaveSpot,
 }: SpotModalProps) {
-  console.log("ค่าของ onSaveSpot ที่รับเข้ามาคือ:", onSaveSpot);
   const [view, setView] = useState<"main" | "select-animal">("main");
   const [description, setDescription] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
@@ -103,14 +102,13 @@ export default function SpotModal({
       !selectedAnimals.some((selected) => selected.id === animal.id) &&
       animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
-
+  //save spot จาก form infomation
   const handleSave = () => {
     if (!spotData) {
       alert("ไม่พบข้อมูลพิกัดตำแหน่งบนแผนที่");
       return;
     }
 
-    // ส่งข้อมูลทั้งหมดกลับไปที่ฟังก์ชัน handleSave ใน page.tsx
     onSaveSpot({
       lat: spotData.lat,
       lng: spotData.lng,
@@ -120,7 +118,6 @@ export default function SpotModal({
       images: selectedImages,
     });
 
-    // เคลียร์ค่าและปิด Modal
     setDescription("");
     setSelectedAnimals([]);
     setSelectedImages([]);
@@ -212,6 +209,7 @@ export default function SpotModal({
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
+                {/* Immage Selected */}
                 {selectedImages.length > 0 && (
                   <div className="flex flex-col gap-2 w-full">
                     {/* ปุ่ม Edit All (แสดงเฉพาะหน้าจอ Desktop หรือ Tablet แนวนอนขึ้นไป) */}
@@ -231,7 +229,7 @@ export default function SpotModal({
                       </button>
                     </div>
 
-                    {/* Pattern Grid สำหรับแสดงรูปภาพ (จำกัดโชว์สูงสุด 5 รูป พร้อม badge +N รูปที่เหลือ) */}
+                    {/* สำหรับแสดงรูปภาพ (จำกัดโชว์สูงสุด 5 รูป) */}
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 w-full">
                       {selectedImages.slice(0, 5).map((file, index) => {
                         const isLastVisible = index === 4;
@@ -241,11 +239,9 @@ export default function SpotModal({
                           <div
                             key={index}
                             onClick={() => {
-                              // ถ้ากดรูปที่ 5 (ที่มี +N) หรือรูปไหนก็ตาม สามารถกดเพื่อเปิดหน้า Edit All ได้
                               setIsEditingImages(true);
                             }}
                             className={`relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer group ${
-                              // ดีไซน์ Pattern: ถ้ารูปแรกในมือถือให้ออกแบบเด่น หรือใช้ Grid เท่ากันสวยๆ
                               index === 0
                                 ? "col-span-2 md:col-span-1 h-36 md:h-28"
                                 : "h-28 md:h-28"
@@ -257,18 +253,16 @@ export default function SpotModal({
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
                             />
 
-                            {/* ถ้าเกิน 5 รูป และเป็นรูปที่ 5 ให้แสดง Overlay มัว พร้อมข้อความ +N */}
                             {isLastVisible && remainingCount > 0 && (
                               <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center text-white font-bold text-lg">
                                 +{remainingCount}
                               </div>
                             )}
 
-                            {/* ปุ่มลบรูปเล็กๆ (เฉพาะตอนยังไม่กดเข้าหน้า Edit All) */}
                             <button
                               type="button"
                               onClick={(e) => {
-                                e.stopPropagation(); // ป้องกันไม่ให้กดเปิดหน้า Edit ตอนกดปุ่มลบ
+                                e.stopPropagation(); 
                                 setSelectedImages((prev) =>
                                   prev.filter((_, i) => i !== index),
                                 );
@@ -383,7 +377,7 @@ export default function SpotModal({
             </div>
           </>
         )}
-        {/* 🖥️ หน้าต่างย่อย: Edit Image / Video (เปิดเมื่อกด Edit All หรือกดที่รูป +N) */}
+        {/* หน้าต่างย่อย Edit Image เปิดเมื่อกด Edit All */}
         {isEditingImages && (
           <div className="absolute inset-0 bg-white z-50 flex flex-col p-4 md:p-6 animate-in fade-in zoom-in-95 duration-150">
             {/* Header ของหน้า Edit */}
@@ -410,7 +404,7 @@ export default function SpotModal({
               </Button>
             </div>
 
-            {/* รายการรูปภาพทั้งหมดในโหมดแก้ไข (แสดงรูปเต็มๆ พร้อมปุ่มกากบาทมุมขวาบนของแต่ละรูป) */}
+            {/* รายการรูปภาพทั้งหมดในโหมดแก้ไข */}
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               {selectedImages.map((file, index) => (
                 <div
@@ -422,14 +416,13 @@ export default function SpotModal({
                     alt={`edit-preview-${index}`}
                     className="w-full h-full object-cover"
                   />
-                  {/* ปุ่มกากบาทลบรูป (ตำแหน่งมุมขวาบนแบบในภาพตัวอย่าง) */}
+                  {/* ปุ่มกากบาทลบรูป */}
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedImages((prev) =>
                         prev.filter((_, i) => i !== index),
                       );
-                      // ถ้าลบจนหมด ให้ปิดหน้า Edit อัตโนมัติ
                       if (selectedImages.length <= 1) {
                         setIsEditingImages(false);
                       }

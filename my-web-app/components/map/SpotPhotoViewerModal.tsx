@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface SpotPhotoViewerModalProps {
@@ -17,6 +17,13 @@ export default function SpotPhotoViewerModal({
   initialIndex = 0,
 }: SpotPhotoViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  // Sync currentIndex whenever modal opens or initialIndex changes
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentIndex(initialIndex);
+    }
+  }, [isOpen, initialIndex]);
 
   if (!isOpen || images.length === 0) return null;
 

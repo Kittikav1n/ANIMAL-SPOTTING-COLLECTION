@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, ChevronUp, ChevronDown } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X } from "lucide-react";
 import { SpotPinData } from "@/components/MapComponent";
 
 interface MobileSpotDrawerProps {
@@ -9,7 +9,7 @@ interface MobileSpotDrawerProps {
   category?: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onPhotoClick?: (imgUrl: string) => void;
+  onPhotoClick?: (imgUrl: string, index?: number) => void;
 }
 
 export default function MobileSpotDrawer({
@@ -19,157 +19,159 @@ export default function MobileSpotDrawer({
   onClose,
   onPhotoClick,
 }: MobileSpotDrawerProps) {
-  // Expansion modes: 'collapsed' | 'half' | 'full'
-  const [expandState, setExpandState] = useState<"collapsed" | "half" | "full">(
-    "half"
+  // 3 Distinct Snap Levels as designed in Figma:
+  // 1. "collapsed" (ค่าเริ่มต้น) = ~68px: Handle bar + Title + Close 'X'
+  // 2. "peek" (ปัดขึ้น 30%) = ~320px: Header + Author + Description + Photo tops peeking
+  // 3. "full" (ยืดสุด 100%) = Max height above bottom nav: Full photo cards side-by-side
+  const [expandState, setExpandState] = useState<"collapsed" | "peek" | "full">(
+    "collapsed"
   );
-  const [isPhotoGridExpanded, setIsPhotoGridExpanded] = useState(false);
+
+  // When a new spot is selected, reset to default ("collapsed")
+  useEffect(() => {
+    if (isOpen) {
+      setExpandState("collapsed");
+    }
+  }, [spot?.id, isOpen]);
+
+  // Touch drag swipe gestures support
+  const touchStartY = useRef<number | null>(null);
+  const touchCurrentY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchCurrentY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartY.current === null || touchCurrentY.current === null) return;
+    const diff = touchStartY.current - touchCurrentY.current; // >0 is swipe up, <0 is swipe down
+    const threshold = 35;
+
+    if (diff > threshold) {
+      // Swipe UP
+      setExpandState((prev) => {
+        if (prev === "collapsed") return "peek";
+        if (prev === "peek") return "full";
+        return "full";
+      });
+    } else if (diff < -threshold) {
+      // Swipe DOWN
+      setExpandState((prev) => {
+        if (prev === "full") return "peek";
+        if (prev === "peek") return "collapsed";
+        // Swiping down from collapsed closes drawer
+        onClose();
+        return "collapsed";
+      });
+    }
+
+    touchStartY.current = null;
+    touchCurrentY.current = null;
+  };
+
+  const toggleExpand = () => {
+    setExpandState((prev) => {
+      if (prev === "collapsed") return "peek";
+      if (prev === "peek") return "full";
+      return "collapsed";
+    });
+  };
 
   if (!isOpen) return null;
 
   const title = spot ? spot.title : `${category || "Animal"} nearby`;
   const images = spot?.images || [];
-  const hasMoreThanTwo = images.length > 2;
-  const visibleImages = isPhotoGridExpanded ? images : images.slice(0, 2);
-
-  const toggleExpand = () => {
-    if (expandState === "collapsed") setExpandState("half");
-    else if (expandState === "half") setExpandState("full");
-    else setExpandState("collapsed");
-  };
 
   return (
     <div
-      className={`fixed left-0 right-0 z-40 bg-card rounded-t-3xl border-t border-border shadow-2xl transition-all duration-300 md:hidden flex flex-col ${
+      className={`fixed left-0 right-0 z-40 bg-card rounded-t-3xl border-t border-border shadow-2xl transition-all duration-300 ease-out md:hidden flex flex-col bottom-[72px] overflow-hidden ${
         expandState === "collapsed"
-          ? "bottom-20 max-h-20 p-3.5"
-          : expandState === "half"
-          ? "bottom-20 max-h-[52vh] p-4"
-          : "bottom-0 max-h-[88vh] p-5 pb-8"
+          ? "h-[68px] px-5 pt-2 pb-3"
+          : expandState === "peek"
+          ? "h-[320px] px-5 pt-2 pb-4"
+          : "h-[calc(100dvh-72px-32px)] px-5 pt-2 pb-4"
       }`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
-      {/* Drag handle pill at the top */}
-      <button
-        type="button"
+      {/* 1. Drag handle pill at top */}
+      <div
         onClick={toggleExpand}
-        className="w-12 h-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50 rounded-full mx-auto mb-2.5 transition-colors cursor-pointer"
-        aria-label="Toggle height"
-      />
+        className="w-full flex justify-center py-1 cursor-pointer select-none shrink-0"
+      >
+        <div className="w-12 h-1 bg-muted-foreground/30 hover:bg-muted-foreground/50 rounded-full transition-colors" />
+      </div>
 
-      {/* Header Row: Title + Close Button */}
-      <div className="flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={toggleExpand}>
-          <h3 className="font-bold text-base text-foreground truncate">{title}</h3>
-          <span className="text-muted-foreground">
-            {expandState === "collapsed" ? (
-              <ChevronUp className="size-4" />
-            ) : (
-              <ChevronDown className="size-4" />
-            )}
-          </span>
+      {/* 2. Header Row: Title + Close Button */}
+      <div className="flex items-center justify-between gap-2 shrink-0 pt-0.5 pb-2">
+        <div
+          className="flex items-center gap-2 cursor-pointer flex-1 min-w-0"
+          onClick={toggleExpand}
+        >
+          <h3 className="font-bold text-base text-foreground truncate">
+            {title}
+          </h3>
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors cursor-pointer"
+          className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors cursor-pointer shrink-0"
           aria-label="Close"
         >
           <X className="size-5" />
         </button>
       </div>
 
-      {/* Detailed content when expanded to half or full */}
+      {/* 3. Detailed content for "peek" (30%) and "full" (100%) states */}
       {expandState !== "collapsed" && (
-        <div className="mt-3 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3 pr-1">
-          {spot ? (
-            <>
-              {/* Creator info */}
-              <div className="flex items-center gap-2">
-                <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                  {spot.author.avatar || spot.author.name.charAt(0)}
-                </div>
-                <span className="text-xs text-muted-foreground font-medium">
-                  {spot.author.name}
-                </span>
+        <div
+          className={`flex-1 flex flex-col gap-3 min-h-0 ${
+            expandState === "full"
+              ? "overflow-y-auto custom-scrollbar pr-1 pb-4"
+              : "overflow-hidden"
+          }`}
+        >
+          {/* Creator / Author row */}
+          {spot && (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="size-7 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold border border-orange-200">
+                {spot.author.avatar || spot.author.name.charAt(0)}
               </div>
+              <span className="text-xs font-semibold text-foreground">
+                {spot.author.name}
+              </span>
+            </div>
+          )}
 
-              {/* Description */}
-              <p className="text-xs text-foreground/80 leading-relaxed">
-                {spot.description}
-              </p>
+          {/* Description */}
+          {spot?.description && (
+            <p className="text-xs text-muted-foreground leading-relaxed shrink-0 line-clamp-3">
+              {spot.description}
+            </p>
+          )}
 
-              {/* Images Grid */}
-              {images.length > 0 && (
-                <div className="flex flex-col gap-2 mt-1">
-                  <div
-                    className={`grid grid-cols-2 gap-2 transition-all duration-300 ${
-                      isPhotoGridExpanded ? "max-h-64 overflow-y-auto pr-1 custom-scrollbar" : ""
-                    }`}
-                  >
-                    {visibleImages.map((imgUrl, idx) => {
-                      const isSecond = idx === 1;
-                      const showMoreOverlay =
-                        !isPhotoGridExpanded && isSecond && hasMoreThanTwo;
-
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            if (showMoreOverlay) {
-                              setIsPhotoGridExpanded(true);
-                            } else {
-                              onPhotoClick?.(imgUrl);
-                            }
-                          }}
-                          className="aspect-[4/5] rounded-xl overflow-hidden bg-muted relative group cursor-pointer"
-                        >
-                          <img
-                            src={imgUrl}
-                            alt={`spot-img-${idx}`}
-                            className="w-full h-full object-cover"
-                          />
-
-                          {showMoreOverlay && (
-                            <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex flex-col items-center justify-center text-white">
-                              <span className="text-base font-bold">
-                                +{images.length - 2}
-                              </span>
-                              <span className="text-[10px] uppercase font-medium">
-                                More
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Collapse / Expand toggle button */}
-                  {hasMoreThanTwo && (
-                    <button
-                      type="button"
-                      onClick={() => setIsPhotoGridExpanded(!isPhotoGridExpanded)}
-                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-muted/60 hover:bg-muted text-xs font-medium text-foreground transition-all cursor-pointer"
-                    >
-                      <span>
-                        {isPhotoGridExpanded
-                          ? "Collapse photos"
-                          : `View all ${images.length} photos`}
-                      </span>
-                      <ChevronDown
-                        className={`size-3.5 transition-transform duration-200 ${
-                          isPhotoGridExpanded ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
-                  )}
+          {/* Photo Cards (2-Column Grid matching Figma design) */}
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              {images.map((imgUrl, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => onPhotoClick?.(imgUrl, idx)}
+                  className="aspect-[3/4] rounded-2xl overflow-hidden bg-muted cursor-pointer shadow-sm relative group shrink-0"
+                >
+                  <img
+                    src={imgUrl}
+                    alt={`spot-img-${idx}`}
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                  />
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="py-4 text-center text-xs text-muted-foreground">
-              Select an animal pin on the map to view detailed spots!
+              ))}
             </div>
           )}
         </div>
