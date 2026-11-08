@@ -7,8 +7,8 @@ interface AnimalFilterChipsProps {
 }
 
 export default function AnimalFilterChips({
-  items = ["All", "🐱 Cat", "🐶 Dog", "🐦 Bird"],
-  activeItem = "All",
+  items = ["ALL", "🐱 CAT", "🐶 DOG", "🐦 BIRD"],
+  activeItem = "ALL",
   onSelect,
 }: AnimalFilterChipsProps) {
   return (
@@ -22,8 +22,8 @@ export default function AnimalFilterChips({
             onClick={() => onSelect?.(item)}
             className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all shadow-sm border shrink-0 ${
               isActive
-                ? "bg-card text-foreground border-foreground/30 font-semibold shadow"
-                : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-foreground/20"
+                ? "bg-card text-foreground border-foreground/30 font-semibold shadow border-primary"
+                : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-foreground/40 hover:shadow-sm"
             }`}
           >
             {item}

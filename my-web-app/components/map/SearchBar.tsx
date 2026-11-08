@@ -81,7 +81,7 @@ export default function SearchBar({
 
       {/* Dropdown Suggestions List */}
       {isOpen && recentSearches.length > 0 && (
-        <div className="absolute top-full left-0 right-0 bg-card rounded-b-2xl shadow-xl border border-t-0 border-border">
+        <div className="absolute top-full left-0 z-50 right-0 bg-card rounded-b-2xl shadow-xl border border-t-0 border-border">
           <div className="flex flex-col divide-y divide-border/60">
             {recentSearches.map((item, idx) => (
               <div

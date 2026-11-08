@@ -46,7 +46,7 @@ export default function DesktopPhotoViewer({
   };
 
   return (
-    <div className="hidden md:flex w-[520px] lg:w-[600px] h-[520px] bg-neutral-900/90 backdrop-blur-xl text-white rounded-3xl shadow-2xl overflow-hidden relative flex-col justify-between p-5 animate-in fade-in zoom-in-95 duration-200 border border-white/10">
+    <div className="hidden md:flex w-full h-full bg-neutral-900/90 backdrop-blur-xl text-white rounded-3xl shadow-2xl overflow-hidden relative flex-col justify-between p-5 animate-in fade-in zoom-in-95 duration-200 border border-white/10">
       {/* Top Header: Badge indicator + Close Button 'X' */}
       <div className="flex items-center justify-between z-20">
         <span className="text-xs text-white/70 font-medium px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-sm">
@@ -67,7 +67,7 @@ export default function DesktopPhotoViewer({
         <img
           src={images[currentIndex] || images[0]}
           alt={`Photo ${currentIndex + 1}`}
-          className="max-h-[380px] max-w-full object-contain rounded-2xl shadow-xl select-none"
+          className="w-full h-full object-contain rounded-2xl shadow-xl select-none"
         />
 
         {/* Left Arrow */}
