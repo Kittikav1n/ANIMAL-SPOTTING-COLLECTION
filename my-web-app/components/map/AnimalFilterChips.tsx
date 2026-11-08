@@ -7,8 +7,8 @@ interface AnimalFilterChipsProps {
 }
 
 export default function AnimalFilterChips({
-  items = ["All", "🐱 Cat", "🐶 Dog", "🐦 Bird"],
-  activeItem = "All",
+  items = ["ALL", "🐱 CAT", "🐶 DOG", "🐦 BIRD"],
+  activeItem = "ALL",
   onSelect,
 }: AnimalFilterChipsProps) {
   return (
