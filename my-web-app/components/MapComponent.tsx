@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { renderToString } from "react-dom/server";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -276,6 +277,27 @@ const isPointInPolygon = (
   return inside;
 };
 
+// Cluster Pin Icon
+interface ClusterPinIconProps {
+  emoji: string;
+  count: number;
+}
+
+function ClusterPinIcon({ emoji, count }: ClusterPinIconProps) {
+  return (
+    <div className="relative size-11 rounded-full bg-[#E0ECDD] border-[1.5px] border-[#536E50]/40 shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105">
+      <span className="text-[22px] leading-none drop-shadow-xs select-none">
+        {emoji}
+      </span>
+      {count > 1 && (
+        <span className="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-[10px] font-bold size-[18px] rounded-full border-[1.5px] border-white flex items-center justify-center shadow-md select-none">
+          {count}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function MapComponent({
   spots = SAMPLE_SPOTS,
   onRightClick,
@@ -327,18 +349,12 @@ export default function MapComponent({
 
         const categoryIcon = L.divIcon({
           className: "category-cluster-pin",
-          html: `
-            <div style="position: relative; width: 44px; height: 44px; border-radius: 50%; background: #0284c7; border: 2.5px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s;">
-              <span style="font-size: 22px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));">
-                ${getCategoryEmoji(cluster.category)}
-              </span>
-              ${
-                count > 1
-                  ? `<span style="position: absolute; top: -3px; right: -3px; background: #ea580c; color: white; font-size: 10px; font-weight: bold; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">${count}</span>`
-                  : ""
-              }
-            </div>
-          `,
+          html: renderToString(
+            <ClusterPinIcon
+              emoji={getCategoryEmoji(cluster.category)}
+              count={count}
+            />
+          ),
           iconSize: [44, 44],
           iconAnchor: [22, 22],
         });

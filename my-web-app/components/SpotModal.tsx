@@ -495,7 +495,7 @@ export default function SpotModal({
                     className="flex items-center justify-between p-2.5 hover:bg-slate-50 cursor-pointer transition rounded-lg"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-sm">
+                      <div className="w-8 h-8 rounded-full bg-[#E0ECDD] border border-[#536E50]/40 flex items-center justify-center text-sm">
                         {animal.avatar}
                       </div>
                       <div className="flex flex-col">

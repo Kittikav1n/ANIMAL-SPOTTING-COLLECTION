@@ -19,8 +19,8 @@ export default function FilterDropdown({
       onClick={onClick}
       className={`relative z-10 flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm text-xs md:text-sm font-medium transition-all cursor-pointer  ${
         selectedCount > 0
-          ? "bg-secondary/15 border-secondary/40 text-secondary dark:bg-secondary/25 dark:border-secondary/60 dark:text-secondary-foreground"
-          : "bg-card text-foreground border-border hover:bg-card/90"
+          ? "bg-card border-secondary/40 text-foreground dark:bg-secondary/25 dark:border-secondary/60 dark:text-secondary-foreground"
+          : "bg-card text-foreground border-border hover:border-secondary/40 transition-all dark:bg-secondary/10 dark:text-secondary-foreground dark:border-secondary/40 dark:hover:bg-secondary/20"
       }`}
     >
       <span>{label}</span>

@@ -211,7 +211,7 @@ export default function AnimalFilterDrawer({
               >
                 {/* Animal avatar icon + Name */}
                 <div className="flex items-center gap-2.5">
-                  <div className="size-7.5 rounded-full bg-secondary/15 border border-secondary/30 text-secondary flex items-center justify-center text-xs shadow-2xs shrink-0">
+                  <div className="size-7.5 rounded-full bg-[#E0ECDD] border border-[#536E50]/40 text-secondary flex items-center justify-center text-xs shadow-2xs shrink-0">
                     {opt.avatar}
                   </div>
                   <span className="font-bold text-xs tracking-wider">
