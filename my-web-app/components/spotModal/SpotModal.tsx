@@ -34,12 +34,16 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
+import axiosInstance from "@/utils/axiosInstance";
+import { useEffect } from "react";
+import AnimalIcon from "@/components/spotModal/AnimalIcon";
 
 interface AnimalItem {
-  id: number;
+  animalId: number;
+  categoryId: number;
   name: string;
   spotsCount: number;
-  avatar: string;
+  animalImagePin: string;
 }
 
 interface SpotModalProps {
@@ -60,15 +64,6 @@ interface SpotModalProps {
   }) => void;
 }
 
-const INITIAL_ANIMALS: AnimalItem[] = [
-  { id: 1, name: "DOG", spotsCount: 100, avatar: "🐶" },
-  { id: 2, name: "CAT", spotsCount: 85, avatar: "🐱" },
-  { id: 3, name: "BIRD", spotsCount: 42, avatar: "🐦" },
-  { id: 4, name: "RABBIT", spotsCount: 20, avatar: "🐰" },
-  { id: 5, name: "FOX", spotsCount: 15, avatar: "🦊" },
-  { id: 6, name: "HAMSTER", spotsCount: 60, avatar: "🐹" },
-];
-
 export default function SpotModal({
   isOpen,
   onClose,
@@ -85,6 +80,8 @@ export default function SpotModal({
   const [selectedAnimals, setSelectedAnimals] = useState<AnimalItem[]>([]);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [isEditingImages, setIsEditingImages] = useState(false);
+  const [animalsList, setAnimalsList] = useState<AnimalItem[]>([]);
+  const [isLoadingAnimals, setIsLoadingAnimals] = useState(false);
 
   // เพิ่มสัตว์ลงในรายการที่เลือก
   const handleSelectAnimal = (animal: AnimalItem) => {
@@ -93,13 +90,13 @@ export default function SpotModal({
 
   // ลบสัตว์ออกจากรายการที่เลือก
   const handleRemoveAnimal = (animalId: number) => {
-    setSelectedAnimals((prev) => prev.filter((item) => item.id !== animalId));
+    setSelectedAnimals((prev) => prev.filter((item) => item.animalId !== animalId));
   };
 
   // กรองสัตว์ที่ไม่ถูกเลือก และตรงกับคำค้นหา
-  const availableAnimals = INITIAL_ANIMALS.filter(
+  const availableAnimals = animalsList.filter(
     (animal) =>
-      !selectedAnimals.some((selected) => selected.id === animal.id) &&
+      !selectedAnimals.some((selected) => selected.animalId === animal.animalId) &&
       animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
   //save spot จาก form infomation
@@ -135,6 +132,28 @@ export default function SpotModal({
     }
     onClose(open);
   };
+
+  // ดึงข้อมูลสัตว์จากฐานข้อมูลเมื่อเปิด Modal โดยใช้ axios + async/await
+  useEffect(() => {
+    const fetchAnimals = async () => {
+      if (!isOpen) return;
+      setIsLoadingAnimals(true);
+      try {
+        const response = await axiosInstance.get("/api/animals");
+        console.log(response);
+        if (response.data.success) {
+
+          setAnimalsList(response.data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching animals:", err);
+      } finally {
+        setIsLoadingAnimals(false);
+      }
+    };
+
+    fetchAnimals();
+  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -190,10 +209,15 @@ export default function SpotModal({
                   <div className="flex flex-wrap gap-2 p-2 bg-slate-50 rounded-lg border border-dashed border-slate-200">
                     {selectedAnimals.map((animal) => (
                       <span
-                        key={animal.id}
+                        key={animal.animalId}
                         className="text-xs bg-amber-900 text-white px-2.5 py-1 rounded-full flex items-center gap-1.5 font-medium"
                       >
-                        <span>{animal.avatar}</span>
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                          <AnimalIcon
+                            pinName={animal.animalImagePin}
+                            className="w-4 h-4 text-slate-700"
+                          />
+                        </div>
                         {animal.name}
                       </span>
                     ))}
@@ -262,7 +286,7 @@ export default function SpotModal({
                             <button
                               type="button"
                               onClick={(e) => {
-                                e.stopPropagation(); 
+                                e.stopPropagation();
                                 setSelectedImages((prev) =>
                                   prev.filter((_, i) => i !== index),
                                 );
@@ -452,14 +476,19 @@ export default function SpotModal({
                 ) : (
                   selectedAnimals.map((animal) => (
                     <div
-                      key={animal.id}
+                      key={animal.animalId}
                       className="flex items-center gap-1.5 bg-[#5c2a18] text-white text-xs font-medium px-2.5 py-1 rounded-full shadow-sm animate-in fade-in zoom-in duration-150"
                     >
-                      <span className="text-xs">{animal.avatar}</span>
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                        <AnimalIcon
+                          pinName={animal.animalImagePin}
+                          className="w-4 h-4 text-slate-700"
+                        />
+                      </div>
                       <span>{animal.name}</span>
                       <button
                         type="button"
-                        onClick={() => handleRemoveAnimal(animal.id)}
+                        onClick={() => handleRemoveAnimal(animal.animalId)}
                         className="hover:bg-white/20 rounded-full p-0.5 transition cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -490,13 +519,18 @@ export default function SpotModal({
               ) : (
                 availableAnimals.map((animal) => (
                   <div
-                    key={animal.id}
+                    key={animal.animalId}
                     onClick={() => handleSelectAnimal(animal)}
                     className="flex items-center justify-between p-2.5 hover:bg-slate-50 cursor-pointer transition rounded-lg"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-sm">
-                        {animal.avatar}
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                          <AnimalIcon
+                            pinName={animal.animalImagePin}
+                            className="w-4 h-4 text-slate-700"
+                          />
+                        </div>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-800">

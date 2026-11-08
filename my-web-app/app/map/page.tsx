@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import SpotModal from "@/components/SpotModal";
+import SpotModal from "@/components/spotModal/SpotModal";
 import SearchBar from "@/components/map/SearchBar";
 import AnimalFilterChips from "@/components/map/AnimalFilterChips";
 import FilterDropdown from "@/components/map/FilterDropdown";
@@ -111,7 +111,7 @@ export default function MapPage() {
       photoUrl: imageUrls[0],
     };
     console.log("Created Spot: ", createdSpot);
-    
+
     setSpots((prev) => [...prev, createdSpot]);
     setSelectedSpot(createdSpot);
     setShowSpotCard(true);
