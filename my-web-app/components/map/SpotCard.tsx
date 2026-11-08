@@ -5,11 +5,11 @@ import { X, ChevronDown } from "lucide-react";
 
 export interface SpotCardData {
   title: string;
+  address?: string;
   author: {
     name: string;
     avatar?: string;
   };
-  address?: string;
   timeAgo?: string;
   description: string;
   images?: string[];
@@ -100,6 +100,7 @@ export default function SpotCard({
               className={`grid grid-cols-2 gap-3 transition-all duration-300 ${isExpanded ? "h-auto" : "h-[200px]"}`}
             >
               {visibleImages.map((imgUrl, idx) => {
+                if (!imgUrl) return null;
                 const isSecondImage = idx === 1;
                 const remainingCount = images.length - 2;
                 const showOverlay = !isExpanded && isSecondImage && hasMoreThanTwo;
@@ -128,6 +129,9 @@ export default function SpotCard({
                       src={imgUrl}
                       alt={`spot-img-${idx}`}
                       className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
                     />
 
                     {/* +N More Overlay on 2nd photo */}

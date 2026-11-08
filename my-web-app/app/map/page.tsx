@@ -25,11 +25,14 @@ const MapComponent = dynamic(() => import("@/components/MapComponent"), {
 
 export default function MapPage() {
   const [isOpen, setIsOpen] = useState(false);
+  const [spots, setSpots] = useState<SpotPinData[]>(SAMPLE_SPOTS);
   const [showSpotCard, setShowSpotCard] = useState(true);
   const [selectedSpot, setSelectedSpot] = useState<SpotPinData | null>(
-    SAMPLE_SPOTS[0]
+    SAMPLE_SPOTS[0],
   );
-  const [selectedCategory, setSelectedCategory] = useState<string | null>("Cat");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    "Cat",
+  );
   const [search, setSearch] = useState("");
   const [activeAnimal, setActiveAnimal] = useState("All");
 
@@ -117,6 +120,49 @@ export default function MapPage() {
       setInitialPhotoIndex(0);
     }
     setPhotoViewerOpen(true);
+  };
+
+  const handleAddNewSpot = (newSpotData: {
+    lat: number;
+    lng: number;
+    address: string;
+    description: string;
+    animals: any[];
+    images: File[];
+  }) => {
+    const imageUrls = newSpotData.images.map((file) =>
+      URL.createObjectURL(file),
+    );
+    console.log("Data: ",newSpotData);
+
+    const createdSpot: SpotPinData = {
+      id: Date.now().toString(),
+      title:
+        newSpotData.animals.length > 0
+          ? `${newSpotData.animals[0].name} Spot`
+          : "New Animal Spot",
+      category:
+        newSpotData.animals.length > 0
+          ? newSpotData.animals[0].name
+          : "General",
+      lat: newSpotData.lat,
+      lng: newSpotData.lng,
+      address: newSpotData.address,
+      description: newSpotData.description,
+      author: { name: "Achirakorn Thawontantikun", avatar: "A" },
+      images:
+        imageUrls.length > 0
+          ? imageUrls
+          : [
+              "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
+            ],
+      photoUrl: imageUrls[0],
+    };
+    console.log("Created Spot: ", createdSpot);
+    
+    setSpots((prev) => [...prev, createdSpot]);
+    setSelectedSpot(createdSpot);
+    setShowSpotCard(true);
   };
 
   return (
@@ -221,6 +267,7 @@ export default function MapPage() {
         isOpen={isOpen}
         onClose={setIsOpen}
         spotData={addSpotCoord}
+        onSaveSpot={handleAddNewSpot}
       />
     </main>
   );
