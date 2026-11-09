@@ -27,6 +27,9 @@ export interface SpotPinData {
 }
 
 // Sample spots placed inside the allowed KMUTT campus zone:
+// Notice: spot-1, spot-2, and spot-3 are within ~40-60 meters of each other (Cluster 1)
+// spot-4 is >250m away near the greenhouse (Cluster 2)
+// spot-5 & spot-6 are Dogs within ~35m of each other (Cluster 3)
 export const SAMPLE_SPOTS: SpotPinData[] = [
   {
     id: "spot-1",
