@@ -27,6 +27,9 @@ export interface SpotPinData {
 }
 
 // Sample spots placed inside the allowed KMUTT campus zone:
+// Notice: spot-1, spot-2, and spot-3 are within ~40-60 meters of each other (Cluster 1)
+// spot-4 is >250m away near the greenhouse (Cluster 2)
+// spot-5 & spot-6 are Dogs within ~35m of each other (Cluster 3)
 export const SAMPLE_SPOTS: SpotPinData[] = [
   {
     id: "spot-1",
@@ -98,19 +101,129 @@ export const SAMPLE_SPOTS: SpotPinData[] = [
   },
   {
     id: "spot-5",
-    title: "Friendly Campus Dog",
-    author: { name: "DogLover01", avatar: "🐕" },
-    description:
-      "Loyal golden campus dog resting near the learning center hallway.",
+    title: "Walkway Dog",
+    author: { name: "CampusWalker", avatar: "🐶" },
+    description: "A dog resting beside a quiet campus walkway.",
     images: [
       "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&h=400&fit=crop",
     ],
-    category: ["dog"],
-    lat: 13.6495,
-    lng: 100.4935,
-    address: "Learning Garden",
+    category: "Dog",
+    lat: 13.6504,
+    lng: 100.49215,
     photoUrl:
       "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=120&h=120&fit=crop",
+  },
+  {
+    id: "spot-6",
+    title: "Lawn Explorer",
+    author: { name: "TrailNotes", avatar: "🐾" },
+    description: "A dog exploring the grass near the edge of the path.",
+    images: [
+      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=400&fit=crop",
+    ],
+    category: "Dog",
+    lat: 13.65062,
+    lng: 100.49232,
+    photoUrl:
+      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=120&h=120&fit=crop",
+  },
+  {
+    id: "spot-7",
+    title: "Garden Perch",
+    author: { name: "BirdWatch", avatar: "🐦" },
+    description: "A bird paused on a branch above the garden path.",
+    images: [
+      "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=400&h=400&fit=crop",
+    ],
+    category: "Bird",
+    lat: 13.6528,
+    lng: 100.49182,
+    photoUrl:
+      "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=120&h=120&fit=crop",
+  },
+  {
+    id: "spot-8",
+    title: "Canopy Visitor",
+    author: { name: "LeafLookout", avatar: "🌳" },
+    description: "A colorful bird spotted among the leaves.",
+    images: [
+      "https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=400&h=400&fit=crop",
+    ],
+    category: "Bird",
+    lat: 13.65255,
+    lng: 100.49165,
+    photoUrl:
+      "https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=120&h=120&fit=crop",
+  },
+  {
+    id: "spot-9",
+    title: "Courtyard Cat",
+    author: { name: "QuietPaws", avatar: "🐱" },
+    description: "A cat taking a break in a quiet corner of the courtyard.",
+    images: [
+      "https://images.unsplash.com/photo-1511044568932-338cba0ad803?w=400&h=400&fit=crop",
+    ],
+    category: "Cat",
+    lat: 13.65182,
+    lng: 100.49495,
+    photoUrl:
+      "https://images.unsplash.com/photo-1511044568932-338cba0ad803?w=120&h=120&fit=crop",
+  },
+  {
+    id: "spot-10",
+    title: "Pathside Pals",
+    author: { name: "CampusWalker", avatar: "🐶" },
+    description: "Two dogs on the move near a campus path.",
+    images: [
+      "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400&h=400&fit=crop",
+    ],
+    category: "Dog",
+    lat: 13.6505,
+    lng: 100.4945,
+    photoUrl:
+      "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=120&h=120&fit=crop",
+  },
+  {
+    id: "spot-11",
+    title: "Garden Dog",
+    author: { name: "TrailNotes", avatar: "🐾" },
+    description: "A dog spotted beside the campus garden.",
+    images: [
+      "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400&h=400&fit=crop",
+    ],
+    category: "Dog",
+    lat: 13.6517,
+    lng: 100.49285,
+    photoUrl:
+      "https://images.unsplash.com/photo-1552053831-71594a27632d?w=120&h=120&fit=crop",
+  },
+  {
+    id: "spot-12",
+    title: "Curious Campus Cat",
+    author: { name: "QuietPaws", avatar: "🐱" },
+    description: "A curious cat that stopped to look at the camera.",
+    images: [
+      "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=400&h=400&fit=crop",
+    ],
+    category: "Cat",
+    lat: 13.65312,
+    lng: 100.49092,
+    photoUrl:
+      "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=120&h=120&fit=crop",
+  },
+  {
+    id: "spot-13",
+    title: "Afternoon Cat",
+    author: { name: "GreenPaw", avatar: "🌿" },
+    description: "A cat settling into a quiet spot for the afternoon.",
+    images: [
+      "https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=400&h=400&fit=crop",
+    ],
+    category: "Cat",
+    lat: 13.64985,
+    lng: 100.49422,
+    photoUrl:
+      "https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=120&h=120&fit=crop",
   },
 ];
 
