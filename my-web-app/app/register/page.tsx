@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import registerMap from "./register-map.webp";
-import { User, Mail, Lock, Eye, EyeOff, Pencil } from "lucide-react";
+import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     InputGroup,
@@ -44,7 +44,11 @@ export default function Register() {
             <div className="grid w-full max-w-[1280px] overflow-hidden bg-white shadow-[0_20px_70px_rgba(23,37,26,.11)] sm:rounded-[24px] lg:h-[820px] lg:grid-cols-[53%_47%]">
                 <MapPanel />
 
-            <section aria-labelledby="register-title" className="flex min-h-svh items-center justify-center px-6 py-8 sm:min-h-0 sm:px-10 sm:py-10 lg:min-h-[780px] lg:px-10 lg:py-14">
+            <section aria-labelledby="register-title" className="relative flex min-h-svh items-center justify-center px-6 pt-14 pb-6 sm:min-h-0 sm:px-10 sm:pt-16 sm:pb-10 lg:min-h-[780px] lg:py-14">
+                <Link href="/" aria-label="Back to home" className="absolute top-2 left-4 inline-flex min-h-11 items-center gap-2 rounded-sm px-2 text-sm font-medium hover:bg-[#F5F5F7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E] sm:top-3 sm:left-6">
+                    <ArrowLeft aria-hidden="true" className="size-5" />
+                    Back
+                </Link>
                 <div className="flex w-full max-w-[410px] flex-col items-center">
                     <header className="text-center">
                         <p className="text-[10px] font-medium tracking-[0.28em] text-[#526E4E] sm:text-[11px]">
