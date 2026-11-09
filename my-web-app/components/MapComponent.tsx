@@ -329,6 +329,7 @@ function clusterSpotsByDistance(
   // Group by category (a spot with multiple categories can participate in corresponding clusters)
   const categoryMap: { [cat: string]: SpotPinData[] } = {};
   spots.forEach((spot) => {
+    if (!spot.category) return;
     const cats = Array.isArray(spot.category) ? spot.category : [spot.category];
     cats.forEach((cat) => {
       const normalized = cat.toLowerCase();

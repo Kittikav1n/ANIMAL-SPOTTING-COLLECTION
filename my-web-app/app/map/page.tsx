@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useMemo } from "react";
-import SpotModal from "@/components/SpotModal";
+import SpotModal from "@/components/spotModal/SpotModal";
 import SearchBar from "@/components/map/SearchBar";
 import AnimalFilterChips from "@/components/map/AnimalFilterChips";
 import FilterDropdown from "@/components/map/FilterDropdown";
@@ -10,8 +10,8 @@ import AnimalFilterDrawer from "@/components/map/AnimalFilterDrawer";
 import SpotCard from "@/components/map/SpotCard";
 import MobileSpotDrawer from "@/components/map/MobileSpotDrawer";
 import SpotPhotoViewerModal from "@/components/map/SpotPhotoViewerModal";
-import MapFloatingControls from "@/components/map/MapFloatingControls";
 import DesktopPhotoViewer from "@/components/map/DesktopPhotoViewer";
+import MapFloatingControls from "@/components/map/MapFloatingControls";
 import { SpotPinData, SAMPLE_SPOTS } from "@/components/MapComponent";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
@@ -23,7 +23,7 @@ const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ),
 });
 
-export default function MapPage() {
+export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [spots, setSpots] = useState<SpotPinData[]>(SAMPLE_SPOTS);
   const [showSpotCard, setShowSpotCard] = useState(true);
@@ -36,7 +36,7 @@ export default function MapPage() {
   const [search, setSearch] = useState("");
   const [activeAnimal, setActiveAnimal] = useState("All");
 
-  // Multi-category Filter Drawer State 
+  // Multi-category Filter Drawer State (Figma Drawer Filter)
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
@@ -63,7 +63,7 @@ export default function MapPage() {
   // 2. Filter chips (All / Cat / Dog / Bird)
   // 3. Multi-select Animal Drawer Filter (selectedCategories)
   const filteredSpots = useMemo(() => {
-    return SAMPLE_SPOTS.filter((spot) => {
+    return spots.filter((spot) => {
       const spotCats = Array.isArray(spot.category)
         ? spot.category.map((c) => c.toLowerCase())
         : [String(spot.category).toLowerCase()];
@@ -93,7 +93,7 @@ export default function MapPage() {
 
       return true;
     });
-  }, [search, activeAnimal, selectedCategories]);
+  }, [spots, search, activeAnimal, selectedCategories]);
 
   const handleMapRightClick = (lat: number, lng: number, address: string) => {
     setAddSpotCoord({ lat, lng, address });
@@ -122,6 +122,7 @@ export default function MapPage() {
     setPhotoViewerOpen(true);
   };
 
+  // callback บันทึกข้อมูลจาก form ลง state ส่ง spot ไปเเสดง
   const handleAddNewSpot = (newSpotData: {
     lat: number;
     lng: number;
@@ -143,8 +144,8 @@ export default function MapPage() {
           : "New Animal Spot",
       category:
         newSpotData.animals.length > 0
-          ? newSpotData.animals[0].name
-          : "General",
+          ? newSpotData.animals.map((animal) => animal.name)
+          : ["General"],
       lat: newSpotData.lat,
       lng: newSpotData.lng,
       address: newSpotData.address,
@@ -156,11 +157,13 @@ export default function MapPage() {
           : [
               "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
             ],
-      photoUrl: imageUrls[0],
+      photoUrl: imageUrls[0] || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
     };
+
     console.log("Created Spot: ", createdSpot);
-    
+
     setSpots((prev) => [...prev, createdSpot]);
+    // ตอนนี้ให้เเสดงดดค่ selectedspot ก่อนเเต่ยังไม่ได้เก็บข้อมูลจริงๆ
     setSelectedSpot(createdSpot);
     setShowSpotCard(true);
   };
@@ -168,7 +171,7 @@ export default function MapPage() {
   return (
     <main className="flex flex-1 flex-col h-full w-full relative overflow-hidden">
       {/* 1. Top Bar: Search + Filter Chips + Filter Dropdown Button */}
-      <div className="absolute top-4 left-4 right-4 z-50 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+      <div className="absolute top-4 left-4 right-4 z-30 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
         <div className="flex items-center gap-2.5 pointer-events-auto">
           <SearchBar value={search} onChange={setSearch} />
           <AnimalFilterChips
@@ -184,7 +187,7 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* 1.1 Animal Filter Drawer / Modal */}
+      {/* 1.1 Animal Filter Drawer / Modal (Figma Drawer Filter) */}
       <AnimalFilterDrawer
         isOpen={isFilterDrawerOpen}
         onClose={() => setIsFilterDrawerOpen(false)}
@@ -243,14 +246,15 @@ export default function MapPage() {
 
       {/* 5. Interactive Leaflet Map with Filtered Spots */}
       <div className="flex-1 w-full relative h-full">
+        {/* Floating Zoom Controls at Bottom-Right */}
         <div className="absolute bottom-24 right-4 z-20 pointer-events-auto hidden md:block">
-          <MapFloatingControls 
+          <MapFloatingControls
             onZoomIn={() =>
               setZoomTrigger({ type: "in", timestamp: Date.now() })
-            } 
+            }
             onZoomOut={() =>
               setZoomTrigger({ type: "out", timestamp: Date.now() })
-            } 
+            }
           />
         </div>
         <MapComponent

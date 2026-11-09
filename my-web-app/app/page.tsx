@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useMemo } from "react";
-import SpotModal from "@/components/SpotModal";
+import SpotModal from "@/components/spotModal/SpotModal";
 import SearchBar from "@/components/map/SearchBar";
 import AnimalFilterChips from "@/components/map/AnimalFilterChips";
 import FilterDropdown from "@/components/map/FilterDropdown";
@@ -63,7 +63,7 @@ export default function Home() {
   // 2. Filter chips (All / Cat / Dog / Bird)
   // 3. Multi-select Animal Drawer Filter (selectedCategories)
   const filteredSpots = useMemo(() => {
-    return SAMPLE_SPOTS.filter((spot) => {
+    return spots.filter((spot) => {
       const spotCats = Array.isArray(spot.category)
         ? spot.category.map((c) => c.toLowerCase())
         : [String(spot.category).toLowerCase()];
@@ -93,7 +93,7 @@ export default function Home() {
 
       return true;
     });
-  }, [search, activeAnimal, selectedCategories]);
+  }, [spots, search, activeAnimal, selectedCategories]);
 
   const handleMapRightClick = (lat: number, lng: number, address: string) => {
     setAddSpotCoord({ lat, lng, address });
@@ -144,8 +144,8 @@ export default function Home() {
           : "New Animal Spot",
       category:
         newSpotData.animals.length > 0
-          ? newSpotData.animals[0].name
-          : "General",
+          ? newSpotData.animals.map((animal) => animal.name)
+          : ["General"],
       lat: newSpotData.lat,
       lng: newSpotData.lng,
       address: newSpotData.address,
