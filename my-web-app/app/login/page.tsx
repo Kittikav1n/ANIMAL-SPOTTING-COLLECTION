@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import registerMap from "../register/register-map.webp";
+import registerMap from "@/app/register/register-map.webp";
 import { ArrowLeft, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
