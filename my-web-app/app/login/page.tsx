@@ -23,15 +23,15 @@ export default function Login() {
 
     return (
         <main className="flex min-h-svh items-center justify-center bg-[#F5F5F7] px-0 py-0 text-[#17251A] sm:px-6 sm:py-8 lg:px-10 lg:py-12">
-            <div className="grid w-full max-w-[1280px] overflow-hidden bg-white shadow-[0_20px_70px_rgba(23,37,26,.11)] sm:rounded-[24px] lg:h-[820px] lg:grid-cols-[53%_47%]">
+            <div className="grid w-full max-w-[1280px] overflow-hidden bg-white shadow-[0_20px_70px_rgba(23,37,26,.11)] sm:rounded-[24px] lg:min-h-[620px] lg:grid-cols-[53%_47%]">
                 <div
                     role="img"
                     aria-label="Illustrated KMUTT spotting map with goose, cat, squirrel, and turtle icons"
-                    className="hidden bg-[#E9ECE5] bg-cover bg-center bg-no-repeat lg:block lg:min-h-[760px]"
+                    className="hidden bg-[#E9ECE5] bg-cover bg-center bg-no-repeat lg:block"
                     style={{ backgroundImage: `url(${registerMap.src})` }}
                 />
 
-                <section aria-labelledby="login-title" className="relative flex min-h-svh items-center justify-center px-6 pt-14 pb-6 sm:min-h-0 sm:px-10 sm:pt-16 sm:pb-10 lg:min-h-[780px] lg:py-16">
+                <section aria-labelledby="login-title" className="relative flex min-h-svh items-center justify-center px-6 pt-14 pb-6 sm:min-h-0 sm:px-10 sm:pt-16 sm:pb-10 lg:pt-14 lg:pb-6">
                     <Link href="/" aria-label="Back to home" className="absolute top-2 left-4 inline-flex min-h-11 items-center gap-2 rounded-sm px-2 text-sm font-medium hover:bg-[#F5F5F7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E] sm:top-3 sm:left-6">
                         <ArrowLeft aria-hidden="true" className="size-5" />
                         Back

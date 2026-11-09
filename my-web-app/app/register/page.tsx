@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import registerMap from "@/app/register/register-map.webp";
+import registerMap from "./register-map.webp";
 import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,17 @@ import {
     InputGroupInput,
     InputGroupButton,
 } from "@/components/ui/input-group";
+
+function MapPanel() {
+    return (
+        <div
+            role="img"
+            aria-label="Illustrated KMUTT spotting map with goose, cat, squirrel, and turtle icons"
+            className="hidden bg-[#E9ECE5] bg-cover bg-center bg-no-repeat lg:block"
+            style={{ backgroundImage: `url(${registerMap.src})` }}
+        />
+    );
+}
 
 export default function Register() {
     const [showPassword, setShowPassword] = useState(false);
@@ -30,15 +41,10 @@ export default function Register() {
 
     return (
         <main className="flex min-h-svh items-center justify-center bg-[#F5F5F7] px-0 py-0 text-[#17251A] sm:px-6 sm:py-8 lg:px-10 lg:py-12">
-            <div className="grid w-full max-w-[1280px] overflow-hidden bg-white shadow-[0_20px_70px_rgba(23,37,26,.11)] sm:rounded-[24px] lg:h-[820px] lg:grid-cols-[53%_47%]">
-                <div
-                    role="img"
-                    aria-label="Illustrated KMUTT spotting map with goose, cat, squirrel, and turtle icons"
-                    className="hidden bg-[#E9ECE5] bg-cover bg-center bg-no-repeat lg:block lg:min-h-[760px]"
-                    style={{ backgroundImage: `url(${registerMap.src})` }}
-                />
+            <div className="grid w-full max-w-[1280px] overflow-hidden bg-white shadow-[0_20px_70px_rgba(23,37,26,.11)] sm:rounded-[24px] lg:min-h-[620px] lg:grid-cols-[53%_47%]">
+                <MapPanel/>
 
-            <section aria-labelledby="register-title" className="relative flex min-h-svh items-center justify-center px-6 pt-14 pb-6 sm:min-h-0 sm:px-10 sm:pt-16 sm:pb-10 lg:min-h-[780px] lg:py-14">
+            <section aria-labelledby="register-title" className="relative flex min-h-svh items-center justify-center px-6 pt-14 pb-6 sm:min-h-0 sm:px-10 sm:pt-16 sm:pb-10 lg:pt-14 lg:pb-6">
                 <Link href="/" aria-label="Back to home" className="absolute top-2 left-4 inline-flex min-h-11 items-center gap-2 rounded-sm px-2 text-sm font-medium hover:bg-[#F5F5F7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E] sm:top-3 sm:left-6">
                     <ArrowLeft aria-hidden="true" className="size-5" />
                     Back
@@ -53,12 +59,12 @@ export default function Register() {
                         </h1>
                     </header>
 
-                    <div className="relative mt-5 mb-5 lg:mt-8 lg:mb-8">
-                        <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] lg:size-[92px]">
+                    <div className="relative my-5 lg:my-2">
+                        <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] lg:size-16">
                             {avatar ? (
                                 <img src={avatar} alt="Selected profile photo" className="size-full object-cover" />
                             ) : (
-                                <User aria-hidden="true" className="size-11 text-[#789570] lg:size-14" strokeWidth={1.25} />
+                                <User aria-hidden="true" className="size-11 text-[#789570]" strokeWidth={1.25} />
                             )}
                         </div>
                         <label className="absolute right-0 bottom-1 flex size-6 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#526E4E] text-white focus-within:ring-2 focus-within:ring-[#526E4E] focus-within:ring-offset-2">
@@ -87,7 +93,7 @@ export default function Register() {
                     </div>
 
                     <form className="w-full" onSubmit={handleSubmit} onChange={() => setMessage("")}>
-                        <div className="flex flex-col gap-4 lg:gap-5">
+                        <div className="flex flex-col gap-4 lg:gap-3">
                             <div className="flex flex-col gap-1.5">
                                 <label htmlFor="username" className="text-xs font-medium">Username</label>
                                 <InputGroup className="h-11 rounded-md border-[#CBD5E1] bg-white lg:h-10">
@@ -131,13 +137,13 @@ export default function Register() {
                             </div>
                         </div>
 
-                        <Button type="submit" className="mt-6 flex h-11 w-full rounded-md bg-[#526E4E] text-sm text-white hover:bg-[#42573F] lg:mt-8 lg:h-10">
+                        <Button type="submit" className="mt-6 flex h-11 w-full rounded-md bg-[#526E4E] text-sm text-white hover:bg-[#42573F] lg:mt-4 lg:h-10">
                             Create Account
                         </Button>
-                        <p role="status" className="mt-3 text-center text-xs text-[#AE3C32]">{message}</p>
+                        <p role="status" className="mt-3 text-center text-xs text-[#AE3C32] lg:mt-1">{message}</p>
                     </form>
 
-                    <p className="mt-6 text-center text-xs text-[#7D8BA1] lg:mt-8">
+                    <p className="mt-6 text-center text-xs text-[#7D8BA1] lg:mt-4">
                         Have an account?{" "}
                         <Link href="/login" className="font-semibold text-[#B83D2E] hover:underline">Sign In</Link>
                     </p>
