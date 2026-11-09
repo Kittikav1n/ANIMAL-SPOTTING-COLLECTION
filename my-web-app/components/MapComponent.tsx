@@ -445,6 +445,7 @@ export default function MapComponent({
       minZoom: 15,
       maxZoom: 19,
       zoomControl: false,
+      doubleClickZoom: false,
     });
 
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -481,8 +482,8 @@ export default function MapComponent({
       map.invalidateSize();
     }, 150);
 
-    // Right-click to add spot
-    map.on("contextmenu", async (e) => {
+    // double-click to add spot
+    map.on("dblclick", async (e) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
 

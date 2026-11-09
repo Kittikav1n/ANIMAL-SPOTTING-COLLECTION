@@ -13,6 +13,7 @@ import SpotPhotoViewerModal from "@/components/map/SpotPhotoViewerModal";
 import DesktopPhotoViewer from "@/components/map/DesktopPhotoViewer";
 import MapFloatingControls from "@/components/map/MapFloatingControls";
 import { SpotPinData, SAMPLE_SPOTS } from "@/components/MapComponent";
+import MapHintBanner from "@/components/spotModal/MapHintBanner";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ssr: false,
@@ -186,6 +187,8 @@ export default function Home() {
           />
         </div>
       </div>
+
+      <MapHintBanner />
 
       {/* 1.1 Animal Filter Drawer / Modal (Figma Drawer Filter) */}
       <AnimalFilterDrawer
