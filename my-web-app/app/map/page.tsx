@@ -28,47 +28,38 @@ export default function Home() {
   const [spots, setSpots] = useState<SpotPinData[]>(SAMPLE_SPOTS);
   const [showSpotCard, setShowSpotCard] = useState(true);
   const [selectedSpot, setSelectedSpot] = useState<SpotPinData | null>(
-    SAMPLE_SPOTS[0],
+    SAMPLE_SPOTS[0]
   );
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    "Cat",
+    "Cat"
   );
   const [search, setSearch] = useState("");
   const [activeAnimal, setActiveAnimal] = useState("All");
 
-  // Multi-category Filter Drawer State (Figma Drawer Filter)
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  // Full-screen photo viewer state (Screen 5)
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [activePhotoList, setActivePhotoList] = useState<string[]>([]);
   const [initialPhotoIndex, setInitialPhotoIndex] = useState(0);
 
-  // Zoom trigger state for custom floating controls
   const [zoomTrigger, setZoomTrigger] = useState<{
     type: "in" | "out";
     timestamp: number;
   } | null>(null);
 
-  // Right-click to add spot
   const [addSpotCoord, setAddSpotCoord] = useState<{
     lat: number;
     lng: number;
     address: string;
   } | null>(null);
 
-  // 🔍 Filter Spots based on:
-  // 1. Search text
-  // 2. Filter chips (All / Cat / Dog / Bird)
-  // 3. Multi-select Animal Drawer Filter (selectedCategories)
   const filteredSpots = useMemo(() => {
     return spots.filter((spot) => {
       const spotCats = Array.isArray(spot.category)
         ? spot.category.map((c) => c.toLowerCase())
         : [String(spot.category).toLowerCase()];
 
-      // 1. Drawer Multi-select Filter
       if (selectedCategories.length > 0) {
         const matchesDrawer = selectedCategories.some((sel) =>
           spotCats.includes(sel.toLowerCase())
@@ -76,13 +67,11 @@ export default function Home() {
         if (!matchesDrawer) return false;
       }
 
-      // 2. Chip Filter (e.g. "Cat", "Dog")
       if (activeAnimal !== "All") {
         const chipCat = activeAnimal.replace(/[^a-zA-Z]/g, "").toLowerCase();
         if (!spotCats.includes(chipCat)) return false;
       }
 
-      // 3. Search query
       if (search.trim()) {
         const q = search.toLowerCase();
         const matchesTitle = spot.title.toLowerCase().includes(q);
@@ -102,7 +91,9 @@ export default function Home() {
 
   const handleSelectSpot = (spot: SpotPinData) => {
     setSelectedSpot(spot);
-    setSelectedCategory(Array.isArray(spot.category) ? spot.category[0] : spot.category);
+    setSelectedCategory(
+      Array.isArray(spot.category) ? spot.category[0] : spot.category
+    );
     setShowSpotCard(true);
   };
 
@@ -122,7 +113,6 @@ export default function Home() {
     setPhotoViewerOpen(true);
   };
 
-  // callback บันทึกข้อมูลจาก form ลง state ส่ง spot ไปเเสดง
   const handleAddNewSpot = (newSpotData: {
     lat: number;
     lng: number;
@@ -132,9 +122,8 @@ export default function Home() {
     images: File[];
   }) => {
     const imageUrls = newSpotData.images.map((file) =>
-      URL.createObjectURL(file),
+      URL.createObjectURL(file)
     );
-    console.log("Data: ",newSpotData);
 
     const createdSpot: SpotPinData = {
       id: Date.now().toString(),
@@ -157,29 +146,38 @@ export default function Home() {
           : [
               "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
             ],
-      photoUrl: imageUrls[0] || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
+      photoUrl:
+        imageUrls[0] ||
+        "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
     };
 
-    console.log("Created Spot: ", createdSpot);
-
     setSpots((prev) => [...prev, createdSpot]);
-    // ตอนนี้ให้เเสดงดดค่ selectedspot ก่อนเเต่ยังไม่ได้เก็บข้อมูลจริงๆ
     setSelectedSpot(createdSpot);
     setShowSpotCard(true);
   };
 
   return (
     <main className="flex flex-1 flex-col h-full w-full relative overflow-hidden">
-      {/* 1. Top Bar: Search + Filter Chips + Filter Dropdown Button */}
-      <div className="absolute top-4 left-4 right-4 z-30 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
-        <div className="flex items-center gap-2.5 pointer-events-auto">
-          <SearchBar value={search} onChange={setSearch} />
-          <AnimalFilterChips
-            activeItem={activeAnimal}
-            onSelect={setActiveAnimal}
+      {/* 1. Top Bar */}
+      <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between gap-2.5 pointer-events-none">
+        <div className="flex items-center gap-2.5 pointer-events-auto flex-1 min-w-0 md:flex-initial">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            activeAnimal={activeAnimal}
+            onSelectAnimal={setActiveAnimal}
+            onFilterClick={() => setIsFilterDrawerOpen((prev) => !prev)}
           />
+          <div className="hidden md:block">
+            <AnimalFilterChips
+              activeItem={activeAnimal}
+              onSelect={setActiveAnimal}
+            />
+          </div>
         </div>
-        <div className="pointer-events-auto">
+
+        {/* ปุ่ม FilterbyAnimal: ใส่ hidden md:block เพื่อซ่อนบนมือถือ และให้แสดงเฉพาะบน Desktop */}
+        <div className="pointer-events-auto shrink-0 hidden md:block">
           <FilterDropdown
             onClick={() => setIsFilterDrawerOpen((prev) => !prev)}
             selectedCount={selectedCategories.length}
@@ -187,7 +185,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 1.1 Animal Filter Drawer / Modal (Figma Drawer Filter) */}
+      {/* 1.1 Animal Filter Drawer / Modal */}
       <AnimalFilterDrawer
         isOpen={isFilterDrawerOpen}
         onClose={() => setIsFilterDrawerOpen(false)}
@@ -195,7 +193,7 @@ export default function Home() {
         onChange={setSelectedCategories}
       />
 
-      {/* 2. Desktop Split View: Spot Card on Left + Big Photo Viewer on Right (md: screens) */}
+      {/* 2. Desktop Split View */}
       {showSpotCard && (
         <div className="absolute top-20 left-4 right-4 bottom-6 z-20 hidden md:flex items-start gap-3 pointer-events-none">
           <div className="pointer-events-auto shrink-0 animate-in fade-in zoom-in-95 duration-200">
@@ -210,7 +208,6 @@ export default function Home() {
             />
           </div>
 
-          {/* Balanced Photo Viewer displayed side-by-side to the right */}
           {photoViewerOpen && (
             <div className="pointer-events-auto shrink-0">
               <DesktopPhotoViewer
@@ -225,7 +222,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 3. Mobile Bottom Drawer / Sheet (Screen 1-4 on mobile screens) */}
+      {/* 3. Mobile Bottom Drawer / Sheet */}
       <MobileSpotDrawer
         spot={selectedSpot}
         category={selectedCategory}
@@ -244,9 +241,8 @@ export default function Home() {
         />
       </div>
 
-      {/* 5. Interactive Leaflet Map with Filtered Spots */}
+      {/* 5. Interactive Leaflet Map */}
       <div className="flex-1 w-full relative h-full">
-        {/* Floating Zoom Controls at Bottom-Right */}
         <div className="absolute bottom-24 right-4 z-20 pointer-events-auto hidden md:block">
           <MapFloatingControls
             onZoomIn={() =>
@@ -266,7 +262,7 @@ export default function Home() {
         />
       </div>
 
-      {/* 6. Modal for adding new spots on right-click */}
+      {/* 6. Modal for adding new spots */}
       <SpotModal
         isOpen={isOpen}
         onClose={setIsOpen}
