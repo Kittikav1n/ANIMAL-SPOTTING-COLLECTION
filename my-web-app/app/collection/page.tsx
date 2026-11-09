@@ -175,43 +175,41 @@ export default function Collection() {
                             <h1 id="collection-title" className="text-center text-[22px] font-bold tracking-tight max-sm:leading-tight sm:text-4xl lg:px-40 lg:text-[32px] lg:leading-tight">Collection</h1>
                             <div className="mx-auto mt-2 h-px w-32 bg-[#DCDCE2] max-sm:col-span-3 sm:mt-5 sm:w-64" />
                         </header>
-                        {/**/}
-                        <div className="mx-auto mt-6 flex w-full max-w-[700px] justify-center items-center gap-4 rounded-lg border border-slate-200 p-6 shadow-sm max-[360px]:gap-3 max-[360px]:px-3 sm:gap-6 sm:p-8">
-                            {/*profile*/}
-                            <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] text-[#526E4E] sm:size-28">
-                                {profileSummary.avatar ? (
-                                    <img
-                                        src={profileSummary.avatar}
-                                        alt="Profile photo"
-                                        className="size-full object-cover"
-                                    />
-                                ) : (
-                                    <User className="size-8 sm:size-14" strokeWidth={1.5} aria-hidden="true" />
-                                )}
+                        <div className="mx-auto mt-6 flex w-full max-w-[900px] flex-col gap-6 sm:gap-8">
+                            <div className="flex w-full items-center justify-center gap-4 rounded-lg border border-slate-200 p-6 shadow-sm max-[360px]:gap-3 max-[360px]:px-3 sm:gap-6 sm:p-8">
+                                {/*profile*/}
+                                <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] text-[#526E4E] sm:size-28">
+                                    {profileSummary.avatar ? (
+                                        <img
+                                            src={profileSummary.avatar}
+                                            alt="Profile photo"
+                                            className="size-full object-cover"
+                                        />
+                                    ) : (
+                                        <User className="size-8 sm:size-14" strokeWidth={1.5} aria-hidden="true" />
+                                    )}
+                                </div>
+                                <dl className="min-w-0 space-y-2 text-base text-slate-900 sm:text-lg">
+                                    {/*name*/}
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                        <dt className="font-medium">Name</dt>
+                                        <dd className="break-words">{profileSummary.name}</dd>
+                                    </div>
+                                    {/*email*/}
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                        <dt className="font-medium">Email</dt>
+                                        <dd className="[overflow-wrap:anywhere]">{profileSummary.email}</dd>
+                                    </div>
+                                    {/*spot*/}
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                        <dt className="font-medium">Spotting</dt>
+                                        <dd>{profileSummary.spottingCount}</dd>
+                                    </div>
+                                </dl>
                             </div>
-                            <dl className="min-w-0 space-y-2 text-base text-slate-900 sm:text-lg">
-                                {/*name*/}
-                                <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
-                                    <dt className="font-medium">Name</dt>
-                                    <dd className="break-words">{profileSummary.name}</dd>
-                                </div>
-                                {/*email*/}
-                                <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
-                                    <dt className="font-medium">Email</dt>
-                                    <dd className="[overflow-wrap:anywhere]">{profileSummary.email}</dd>
-                                </div>
-                                {/*spot*/}
-                                <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
-                                    <dt className="font-medium">Spotting</dt>
-                                    <dd>{profileSummary.spottingCount}</dd>
-                                </div>
-                            </dl>
-                        </div>
-                        {/*Spotting*/}
-                        <div className="mx-auto mt-6 w-full max-w-[900px] sm:mt-8">
                             <ul
                                 aria-label="Spotting photos"
-                                className={`grid gap-px overflow-hidden rounded-sm ${(sampleSpots?.length ?? 0) < 3 ? "grid-cols-2" : "grid-cols-3" }`}>
+                                className={`grid w-full gap-px overflow-hidden rounded-sm ${(sampleSpots?.length ?? 0) < 3 ? "grid-cols-2" : "grid-cols-3" }`}>
                                 {sampleSpots?.map((spot) => (
                                     <li key={spot.id} className="overflow-hidden bg-slate-100">
                                         <button
