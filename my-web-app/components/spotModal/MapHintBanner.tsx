@@ -52,7 +52,7 @@ export default function MapHintBanner() {
         <p className="text-sm leading-snug text-neutral-600">
           <span className="font-semibold text-neutral-900">Tip</span>
           <span className="mx-1.5 text-neutral-300">|</span>
-          ดับเบิลคลิกบนแผนที่เพื่อเพิ่ม Spot ใหม่
+          Double-Click on the map to add new spot.
         </p>
 
         <button
