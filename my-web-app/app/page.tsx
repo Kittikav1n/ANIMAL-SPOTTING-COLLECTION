@@ -12,7 +12,7 @@ import MobileSpotDrawer from "@/components/map/MobileSpotDrawer";
 import SpotPhotoViewerModal from "@/components/map/SpotPhotoViewerModal";
 import DesktopPhotoViewer from "@/components/map/DesktopPhotoViewer";
 import MapFloatingControls from "@/components/map/MapFloatingControls";
-import { SpotPinData, SAMPLE_SPOTS } from "@/components/MapComponent";
+import { SpotPinData } from "@/components/MapComponent";
 import MapHintBanner from "@/components/spotModal/MapHintBanner";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
@@ -35,7 +35,7 @@ export default function Home() {
     "Cat",
   );
   const [search, setSearch] = useState("");
-  const [activeAnimal, setActiveAnimal] = useState("All");
+  const [activeAnimal, setActiveAnimal] = useState("ALL");
 
   // Multi-category Filter Drawer State (Figma Drawer Filter)
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
@@ -52,7 +52,7 @@ export default function Home() {
     timestamp: number;
   } | null>(null);
 
-  // Right-click to add spot
+  // Double-click to add spot
   const [addSpotCoord, setAddSpotCoord] = useState<{
     lat: number;
     lng: number;
@@ -78,7 +78,7 @@ export default function Home() {
       }
 
       // 2. Chip Filter (e.g. "Cat", "Dog")
-      if (activeAnimal !== "All") {
+      if (activeAnimal !== "ALL") {
         const chipCat = activeAnimal.replace(/[^a-zA-Z]/g, "").toLowerCase();
         if (!spotCats.includes(chipCat)) return false;
       }

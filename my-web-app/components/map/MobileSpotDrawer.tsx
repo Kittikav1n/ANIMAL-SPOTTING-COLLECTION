@@ -141,10 +141,10 @@ export default function MobileSpotDrawer({
           {spot && (
             <div className="flex items-center gap-2 shrink-0">
               <div className="size-7 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold border border-orange-200">
-                {spot.author.avatar || spot.author.name.charAt(0)}
+                {spot.author?.avatar || spot.author?.name?.charAt(0) || "A"}
               </div>
               <span className="text-xs font-semibold text-foreground">
-                {spot.author.name}
+                {spot.author?.name || "Spotter"}
               </span>
             </div>
           )}
