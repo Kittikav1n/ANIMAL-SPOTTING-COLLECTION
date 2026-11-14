@@ -5,6 +5,7 @@ import Link from "next/link";
 import registerMap from "@/app/register/register-map.webp";
 import { ArrowLeft, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import {
     InputGroup,
     InputGroupAddon,
@@ -13,12 +14,57 @@ import {
 } from "@/components/ui/input-group";
 
 export default function Login() {
+    const router = useRouter();
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [message, setMessage] = useState("");
 
-    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setMessage("Sign in is not available yet. Please try again later.");
+
+        if (isSubmitting) return;
+
+        setMessage("");
+
+        const data = new FormData(event.currentTarget);
+        const identifier = String(data.get("username") ?? "").trim();
+        const password = String(data.get("password") ?? "");
+
+        setIsSubmitting(true);
+
+        try {
+            const response = await fetch(
+                "http://localhost:5001/api/auth/login",
+                {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        identifier,
+                        password,
+                    }),
+                },
+            );
+
+            const result = await response.json();
+
+            if (!response.ok || result.success !== true) {
+                setMessage(
+                    typeof result.message === "string"
+                        ? result.message
+                        : "Unable to log in. Please try again.",
+                );
+                return;
+            }
+
+            router.replace("/");
+        } catch {
+            setMessage("Cannot connect to the server. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -88,8 +134,8 @@ export default function Login() {
                                 </div>
                             </div>
 
-                            <Button type="submit" className="mt-7 h-11 w-full rounded-md bg-[#526E4E] text-sm text-white hover:bg-[#42573F] lg:mt-9 lg:h-10">
-                                Sign In
+                            <Button type="submit" disabled={isSubmitting} className="mt-7 h-11 w-full rounded-md bg-[#526E4E] text-sm text-white hover:bg-[#42573F] lg:mt-9 lg:h-10">
+                                {isSubmitting ? "Signing in..." : "Sign In"}
                             </Button>
                             <p role="status" className="mt-3 text-center text-xs text-[#AE3C32]">{message}</p>
                         </form>
