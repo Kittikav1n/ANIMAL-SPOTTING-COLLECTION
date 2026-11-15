@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import GuestProfileContent from "@/components/auth/GuestProfileContent";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
 import { ArrowLeft, User, Mail, Lock, Pencil, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,50 +57,8 @@ const MapComponent = dynamic(
     }
 );
 
-function GuestProfileContent() {
-    return (
-        <div className="mx-auto mt-3 flex w-full max-w-[470px] flex-col items-center sm:mt-6 lg:mt-4">
-            <div className="flex size-[72px] items-center justify-center rounded-full bg-[#E0ECDD] sm:size-40 lg:size-24">
-                <User
-                    aria-hidden="true"
-                    className="size-10 text-[#526E4E] sm:size-24 lg:size-14"
-                    strokeWidth={1.25}
-                />
-            </div>
-
-            <h2 className="mt-5 text-center text-lg font-semibold">
-                Welcome to your collection
-            </h2>
-
-            <p className="mt-2 text-center text-sm leading-relaxed text-[#7A817D]">
-                Log in to add animal spots
-                <br />
-                and manage your profile.
-            </p>
-
-            <div className="mt-6 flex w-full max-w-[344px] flex-col gap-2 sm:gap-6 lg:gap-2">
-                <Link
-                    href="/login"
-                    className="flex h-11 items-center justify-center rounded-md bg-[#93A58F] text-sm text-[#171C18] hover:bg-[#81977C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E]"
-                >
-                    Login
-                </Link>
-
-                <Link
-                    href="/register"
-                    className="flex h-11 items-center justify-center rounded-md bg-[#B5756C] text-sm text-[#171C18] hover:bg-[#A8655C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E]"
-                >
-                    Register
-                </Link>
-            </div>
-        </div>
-    );
-}
-
-
-
 export default function ProfilePage() {
-    const router = useRouter();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [authStatus, setAuthStatus] = useState<
         "checking" | "guest" | "member" | "error"
     >("checking");
@@ -162,6 +120,45 @@ export default function ProfilePage() {
     const photoRef = useRef<HTMLInputElement>(null);
     const profile = draft ?? savedProfile;
     const hasChanges = profile.username !== savedProfile.username || profile.email !== savedProfile.email || profile.avatar !== savedProfile.avatar;
+
+    async function handleLogout() {
+        if (isLoggingOut) return;
+
+        setIsLoggingOut(true);
+        setFeedback(null);
+
+        try {
+            const response = await fetch(
+                "http://localhost:5001/api/auth/logout",
+                {
+                    method: "POST",
+                    credentials: "include",
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error("Logout failed");
+            }
+
+            const result = await response.json();
+
+            if (result.success !== true) {
+                throw new Error("Invalid logout response");
+            }
+
+            setDraft(null);
+            setEditing(null);
+            setErrors({});
+            setAuthStatus("guest");
+        } catch {
+            setFeedback({
+                kind: "error",
+                text: "Unable to log out. Please try again.",
+            });
+        } finally {
+            setIsLoggingOut(false);
+        }
+    }
 
     function updateField(field: Field, value: string) {
         setDraft({ ...profile, [field]: value });
@@ -238,16 +235,16 @@ export default function ProfilePage() {
             </div>
             <div className="absolute inset-0 z-10 bg-[#17251A]/20 backdrop-blur-[3px]" aria-hidden="true" />
             <section aria-labelledby="profile-title" className="relative z-20 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-24 sm:px-6 sm:py-8 lg:px-10">
-                <div className="mx-auto my-auto w-full max-w-[720px] shrink-0 rounded-lg bg-white px-4 py-4 shadow-xl sm:px-10 sm:py-7 lg:flex lg:min-h-[620px] lg:flex-col lg:justify-center lg:px-14 lg:py-5">
-                    <header className="relative max-sm:grid max-sm:grid-cols-[44px_minmax(0,1fr)_44px] max-sm:items-center">
-                        <Link href="/map" aria-label="Back to map" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base">
+                <div className={`mx-auto my-auto w-full shrink-0 rounded-lg bg-white shadow-xl ${authStatus === "guest" ? "max-w-[560px] px-4 py-5 sm:px-10 lg:px-14" : "max-w-[720px] px-4 py-4 sm:px-10 sm:py-7 lg:flex lg:min-h-[620px] lg:flex-col lg:justify-start lg:px-14 lg:py-5"}`}>
+                    <header className={`relative ${authStatus === "guest" ? "grid grid-cols-[44px_minmax(0,1fr)_44px] items-center sm:grid-cols-[80px_minmax(0,1fr)_80px]" : "max-sm:grid max-sm:grid-cols-[44px_minmax(0,1fr)_44px] max-sm:items-center"}`}>
+                        <Link href="/map" aria-label="Back to map" className={`inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] ${authStatus === "guest" ? "justify-center sm:justify-start" : "max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base"}`}>
                             <ArrowLeft aria-hidden="true" className="size-5" />
                             <span className="hidden sm:inline">back</span>
                         </Link>
-                        <h1 id="profile-title" className="text-center text-[22px] font-bold tracking-tight max-sm:leading-tight sm:text-4xl lg:px-40 lg:text-[24px] lg:leading-tight">
+                        <h1 id="profile-title" className={`text-center font-bold tracking-tight leading-tight ${authStatus === "guest" ? "text-xl" : "text-[22px] sm:text-4xl lg:px-40 lg:text-[24px]"}`}>
                             {authStatus === "member" ? "Profile Settings" : "Profile"}
                         </h1>
-                        <div className="mx-auto mt-2 h-px w-32 bg-[#DCDCE2] max-sm:col-span-3 sm:mt-5 sm:w-52 lg:mt-3" />
+                        <div className={`mx-auto h-px bg-[#DCDCE2] ${authStatus === "guest" ? "col-span-3 mt-3 w-52 max-w-full" : "mt-2 w-32 max-sm:col-span-3 sm:mt-5 sm:w-52 lg:mt-3"}`} />
                     </header>
                     {authStatus === "checking" && (
                         <p role="status" className="mt-6 text-center text-sm text-[#7A817D]">
@@ -273,7 +270,7 @@ export default function ProfilePage() {
                     )}
                     {authStatus === "guest" && <GuestProfileContent />}
                     {authStatus === "member" && (
-                        <form noValidate onSubmit={saveChanges} aria-busy={readingPhoto} className="mx-auto mt-3 flex w-full max-w-[470px] flex-col items-center sm:mt-6 lg:mt-4">
+                        <form noValidate onSubmit={saveChanges} aria-busy={readingPhoto || isLoggingOut} className="mx-auto mt-3 flex w-full max-w-[470px] flex-col items-center sm:mt-6 lg:mt-4">
                             <div className="relative">
                                 <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] sm:size-40 lg:size-24">
                                     {profile.avatar ? (
@@ -318,8 +315,8 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="mt-4 flex w-full max-w-[344px] flex-col gap-2 sm:mt-7 sm:gap-6 lg:mt-4 lg:gap-2">
-                                <Button type="submit" disabled={!hasChanges || readingPhoto} className="h-11 w-full rounded-md bg-[#93A58F] text-sm text-[#171C18] hover:bg-[#81977C] disabled:opacity-65">Save Changes</Button>
-                                <Button type="button" onClick={() => router.replace("/login")} className="h-11 w-full rounded-md bg-[#B5756C] text-sm text-[#171C18] hover:bg-[#A8655C]">Logout</Button>
+                                <Button type="submit" disabled={!hasChanges || readingPhoto || isLoggingOut} className="h-11 w-full rounded-md bg-[#93A58F] text-sm text-[#171C18] hover:bg-[#81977C] disabled:opacity-65">Save Changes</Button>
+                                <Button type="button" onClick={handleLogout} disabled={isLoggingOut || readingPhoto} className="h-11 w-full rounded-md bg-[#B5756C] text-sm text-[#171C18] hover:bg-[#A8655C]">{isLoggingOut ? "Logging out..." : "Logout"}</Button>
                             </div>
                             <p className="mt-3 text-center text-xs text-[#7A817D] sm:mt-4 lg:mt-3">Profile changes are saved on this device.</p>
                             <div className="w-full text-center text-sm sm:mt-2 sm:min-h-5" role={feedback?.kind === "error" ? "alert" : "status"} aria-live="polite">

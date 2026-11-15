@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import GuestProfileContent from "@/components/auth/GuestProfileContent";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { SpotPinData } from "@/components/MapComponent";
 import { ArrowLeft, ChevronLeft, ChevronRight, Images, MapPin, User } from "lucide-react";
@@ -79,6 +80,55 @@ function SpotPost({ spot }: { spot: SpotPinData }) {
 }
 
 export default function Collection() {
+    const [authStatus, setAuthStatus] = useState<
+        "checking" | "guest" | "member" | "error"
+    >("checking");
+    const [sessionCheck, setSessionCheck] = useState(0);
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        async function checkSession() {
+            try {
+                const response = await fetch(
+                    "http://localhost:5001/api/auth/me",
+                    {
+                        credentials: "include",
+                        cache: "no-store",
+                        signal: controller.signal,
+                    },
+                );
+
+                if (controller.signal.aborted) return;
+
+                if (response.status === 401) {
+                    setAuthStatus("guest");
+                    return;
+                }
+
+                if (!response.ok) throw new Error("Session check failed");
+
+                const result = await response.json();
+
+                if (result.success !== true || !result.data?.userID) {
+                    throw new Error("Invalid session response");
+                }
+
+                if (!controller.signal.aborted) {
+                    setAuthStatus("member");
+                }
+            } catch {
+                if (!controller.signal.aborted) {
+                    setAuthStatus("error");
+                }
+            }
+        }
+
+        void checkSession();
+
+        return () => controller.abort();
+    }, [sessionCheck]);
+
     const saveProfile = useSyncExternalStore(subscribeToProfile, readProfile, () => "");
     let profile: { username?: string; email?: string; avatar?: string } | null = null;
     try {
@@ -93,6 +143,8 @@ export default function Collection() {
     const gridPosition = useRef<{ spotId: string; scrollTop: number } | null>(null);
 
     useEffect(() => {
+        if (authStatus !== "member") return;
+
         let active = true;
 
         import("@/components/MapComponent")
@@ -102,9 +154,11 @@ export default function Collection() {
             .catch((error) => console.error("Could not load sample spots", error));
 
         return () => { active = false; };
-    }, []);
+    }, [authStatus]);
 
     useLayoutEffect(() => {
+        if (authStatus !== "member") return;
+
         if (selectedSpotId) {
             const scroller = detailScrollRef.current;
             const post = document.getElementById(`collection-post-${selectedSpotId}`);
@@ -120,14 +174,16 @@ export default function Collection() {
             document.getElementById(`collection-spot-${spotId}`)?.focus({ preventScroll: true });
             gridPosition.current = null;
         }
-    }, [selectedSpotId]);
+    }, [authStatus, selectedSpotId]);
 
     function openSpot(spotId: string) {
         gridPosition.current = { spotId, scrollTop: gridScrollRef.current?.scrollTop ?? 0 };
         setSelectedSpotId(spotId);
     }
 
-    const selectedSpot = sampleSpots?.find((spot) => spot.id === selectedSpotId);
+    const selectedSpot = authStatus === "member"
+        ? sampleSpots?.find((spot) => spot.id === selectedSpotId)
+        : undefined;
 
     const profileSummary = {
         avatar: profile?.avatar ?? "",
@@ -144,9 +200,43 @@ export default function Collection() {
 
             <div
                 ref={selectedSpot ? undefined : gridScrollRef}
-                className={`relative z-20 min-h-0 min-w-0 flex-1 px-4 pt-4 pb-24 sm:p-8 ${selectedSpot ? "flex overflow-hidden" : "overflow-y-auto"}`}
+                className={`relative z-20 min-h-0 min-w-0 flex-1 px-4 pt-4 pb-24 sm:p-8 ${selectedSpot ? "flex overflow-hidden" : authStatus !== "member" ? "flex flex-col overflow-y-auto" : "overflow-y-auto"}`}
             >
-                {selectedSpot ? (
+                {authStatus !== "member" ? (
+                    <section aria-labelledby="collection-title" className="mx-auto my-auto w-full max-w-[560px] shrink-0 rounded-lg bg-white px-4 py-5 shadow-md sm:px-10 lg:px-14">
+                        <header className="relative grid grid-cols-[44px_minmax(0,1fr)_44px] items-center sm:grid-cols-[80px_minmax(0,1fr)_80px]">
+                            <Link href="/map" aria-label="Back to map" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] sm:justify-start">
+                                <ArrowLeft aria-hidden="true" className="size-5" />
+                                <span className="hidden sm:inline">back</span>
+                            </Link>
+                            <h1 id="collection-title" className="text-center text-xl font-bold leading-tight tracking-tight">Collection</h1>
+                            <div className="col-span-3 mx-auto mt-3 h-px w-52 max-w-full bg-[#DCDCE2]" />
+                        </header>
+                        {authStatus === "checking" && (
+                            <p role="status" className="mt-6 text-center text-sm text-[#7A817D]">
+                                Checking your account...
+                            </p>
+                        )}
+                        {authStatus === "error" && (
+                            <div className="mt-6 text-center">
+                                <p role="alert" className="text-sm text-[#AE3C32]">
+                                    Cannot connect to the server.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setAuthStatus("checking");
+                                        setSessionCheck((current) => current + 1);
+                                    }}
+                                    className="mt-3 min-h-11 cursor-pointer rounded-md border border-[#526E4E] px-5 text-sm text-[#526E4E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E]"
+                                >
+                                    Try again
+                                </button>
+                            </div>
+                        )}
+                        {authStatus === "guest" && <GuestProfileContent />}
+                    </section>
+                ) : selectedSpot ? (
                     <section aria-label="Spotting details" className="mx-auto flex min-h-0 w-full max-w-[1040px] flex-col overflow-hidden rounded-lg bg-white shadow-md">
                         <header className="shrink-0 px-4 pt-3 sm:px-8 sm:pt-5">
                             <button
