@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { renderToString } from "react-dom/server";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import AnimalIcon from "@/components/spotModal/AnimalIcon";
 
 // Fix Leaflet Default Marker Icon in Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -148,7 +146,7 @@ function clusterSpotsByDistance(
       } else {
         clusters.push({
           category,
-          pinName: spot.pinName || animalPinMap?.[category],
+          pinName: animalPinMap?.[category] || spot.pinName,
           centerLat: spot.lat,
           centerLng: spot.lng,
           spots: [spot],
@@ -249,11 +247,20 @@ export default function MapComponent({
       clusters.forEach((cluster) => {
         const count = cluster.spots.length;
 
+        const iconCode = cluster.pinName || "ph:question";
+
         const categoryIcon = L.divIcon({
           className: "category-cluster-pin",
-          html: renderToString(
-            <ClusterPinIcon pinName={cluster.pinName} count={count} />
-          ),
+          html: `
+            <div class="relative size-11 rounded-full bg-accent shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105 text-secondary">
+              <iconify-icon icon="${iconCode}" width="24" height="24"></iconify-icon>
+              ${
+                count > 1
+                  ? `<span class="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-[10px] font-bold size-[18px] rounded-full flex items-center justify-center shadow-md select-none">${count}</span>`
+                  : ""
+              }
+            </div>
+          `,
           iconSize: [44, 44],
           iconAnchor: [22, 22],
         });
@@ -280,6 +287,7 @@ export default function MapComponent({
         const fallbackPin =
           spot.pinName ||
           animalPinMapRef.current?.[spot.category?.[0]?.toLowerCase() || ""];
+        const fallbackIconCode = fallbackPin || "ph:question";
 
         const photoPinIcon = L.divIcon({
           className: "photo-spot-pin",
@@ -289,11 +297,11 @@ export default function MapComponent({
                 <img src="${validPhotoUrl}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
               </div>
             `
-            : renderToString(
-                <div className="size-11 rounded-full bg-accent shadow-md flex items-center justify-center cursor-pointer text-secondary">
-                  <AnimalIcon pinName={fallbackPin || "ph:question"} className="size-6 text-current"/>
-                </div>
-              ),
+            : `
+              <div class="size-11 rounded-full bg-accent shadow-md flex items-center justify-center cursor-pointer text-secondary">
+                <iconify-icon icon="${fallbackIconCode}" width="24" height="24"></iconify-icon>
+              </div>
+            `,
           iconSize: [48, 48],
           iconAnchor: [24, 24],
         });

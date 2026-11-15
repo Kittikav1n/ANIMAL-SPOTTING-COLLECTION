@@ -126,27 +126,61 @@ export default function Home() {
     return map;
   }, [backendAnimals]);
 
-  const filteredSpots = useMemo(() => {
-    return spots.filter((spot) => {
-      const spotCats = Array.isArray(spot.category)
-        ? spot.category.map((c) => c.toLowerCase())
-        : [String(spot.category).toLowerCase()];
+const filteredSpots = useMemo(() => {
+    return spots
+      .filter((spot) => {
+        const spotCats = Array.isArray(spot.category)
+          ? spot.category.map((c) => c.toLowerCase())
+          : [String(spot.category).toLowerCase()];
 
-      if (selectedCategories.length > 0) {
-        const matchesDrawer = selectedCategories.some((sel) =>
-          spotCats.includes(sel.toLowerCase())
-        );
-        if (!matchesDrawer) return false;
-      }
+        // 1. Drawer Multi-select Filter
+        if (selectedCategories.length > 0) {
+          const matchesDrawer = selectedCategories.some((sel) =>
+            spotCats.includes(sel.toLowerCase())
+          );
+          if (!matchesDrawer) return false;
+        }
 
-      if (activeAnimal.toUpperCase() !== "ALL") {
-        const chipCat = activeAnimal.replace(/[^a-zA-Z]/g, "").toLowerCase();
-        if (!spotCats.includes(chipCat)) return false;
-      }
+        // 2. Chip Filter (e.g. "Cat", "Dog")
+        if (activeAnimal !== "ALL") {
+          const chipCat = activeAnimal.trim().toLowerCase();
+          if (!spotCats.includes(chipCat)) return false;
+        }
 
-      return true;
-    });
-  }, [spots, activeAnimal, selectedCategories]);
+        // 3. Search query
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          const matchesTitle = spot.title.toLowerCase().includes(q);
+          const matchesDesc = spot.description.toLowerCase().includes(q);
+          const matchesAuthor = spot.author.name.toLowerCase().includes(q);
+          if (!matchesTitle && !matchesDesc && !matchesAuthor) return false;
+        }
+
+        return true;
+      })
+      .map((spot) => {
+        // กรองให้หมุดบนแผนที่แสดงเฉพาะชนิดสัตว์ที่กำลังเลือกใน Filter (ไม่ให้สัตว์ตัวอื่นใน Spot เดียวกันโผล่มาซ้อน)
+        const cats = Array.isArray(spot.category) ? spot.category : [spot.category];
+        const filteredCats = cats.filter((cat) => {
+          const lower = cat.toLowerCase();
+          if (activeAnimal !== "ALL" && lower !== activeAnimal.trim().toLowerCase()) {
+            return false;
+          }
+          if (
+            selectedCategories.length > 0 &&
+            !selectedCategories.some((sel) => sel.toLowerCase() === lower)
+          ) {
+            return false;
+          }
+          return true;
+        });
+
+        return {
+          ...spot,
+          category: filteredCats.length > 0 ? filteredCats : cats,
+        };
+      });
+  }, [spots, search, activeAnimal, selectedCategories]);
 
   // ทำงานเมื่อ Double-click บนแผนที่เพื่อเปิด Modal สร้าง Spot
   const handleMapDoubleClick = (lat: number, lng: number, address: string) => {
