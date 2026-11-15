@@ -59,7 +59,7 @@ export default function Login() {
                 return;
             }
 
-            router.replace("/");
+            router.replace("/map");
         } catch {
             setMessage("Cannot connect to the server. Please try again.");
         } finally {

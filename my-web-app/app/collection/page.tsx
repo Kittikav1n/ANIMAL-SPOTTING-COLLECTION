@@ -166,17 +166,17 @@ export default function Collection() {
                         </div>
                     </section>
                 ) : (
-                    <section aria-labelledby="collection-title" className="mx-auto w-full max-w-[1040px] rounded-lg bg-white p-6 shadow-md max-[360px]:px-3">
+                    <section aria-labelledby="collection-title" className="mx-auto w-full max-w-[920px] rounded-lg bg-white p-6 shadow-md max-[360px]:px-3">
                         <header className="relative max-sm:grid max-sm:grid-cols-[44px_minmax(0,1fr)_44px] max-sm:items-center">
                             <Link href="/map" aria-label="Back to map" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base">
                                 <ArrowLeft aria-hidden="true" className="size-5" />
                                 <span className="hidden sm:inline">back</span>
                             </Link>
-                            <h1 id="collection-title" className="text-center text-[22px] font-bold tracking-tight max-sm:leading-tight sm:text-4xl lg:px-40 lg:text-[32px] lg:leading-tight">Collection</h1>
-                            <div className="mx-auto mt-2 h-px w-32 bg-[#DCDCE2] max-sm:col-span-3 sm:mt-5 sm:w-64" />
+                            <h1 id="collection-title" className="text-center text-[22px] font-bold tracking-tight max-sm:leading-tight sm:text-4xl lg:px-40 lg:text-[24px] lg:leading-tight">Collection</h1>
+                            <div className="mx-auto mt-2 h-px w-32 bg-[#DCDCE2] max-sm:col-span-3 sm:mt-5 sm:w-52" />
                         </header>
                         <div className="mx-auto mt-6 flex w-full max-w-[900px] flex-col gap-6 sm:gap-8">
-                            <div className="flex w-full items-center justify-center gap-4 rounded-lg border border-slate-200 p-6 shadow-sm max-[360px]:gap-3 max-[360px]:px-3 sm:gap-6 sm:p-8">
+                            <div className="flex w-full items-center justify-center gap-4 rounded-lg p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] max-[360px]:gap-3 max-[360px]:px-3 sm:gap-18 sm:p-8">
                                 {/*profile*/}
                                 <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] text-[#526E4E] sm:size-28">
                                     {profileSummary.avatar ? (
@@ -189,19 +189,19 @@ export default function Collection() {
                                         <User className="size-8 sm:size-14" strokeWidth={1.5} aria-hidden="true" />
                                     )}
                                 </div>
-                                <dl className="min-w-0 space-y-2 text-base text-slate-900 sm:text-lg">
+                                <dl className="min-w-0 space-y-2 text-sm text-slate-900 sm:text-lg">
                                     {/*name*/}
-                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-4 sm:grid-cols-[5rem_minmax(0,1fr)]">
                                         <dt className="font-medium">Name</dt>
                                         <dd className="break-words">{profileSummary.name}</dd>
                                     </div>
                                     {/*email*/}
-                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-4 sm:grid-cols-[5rem_minmax(0,1fr)]">
                                         <dt className="font-medium">Email</dt>
                                         <dd className="[overflow-wrap:anywhere]">{profileSummary.email}</dd>
                                     </div>
                                     {/*spot*/}
-                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-4 sm:grid-cols-[5rem_minmax(0,1fr)]">
                                         <dt className="font-medium">Spotting</dt>
                                         <dd>{profileSummary.spottingCount}</dd>
                                     </div>

@@ -148,14 +148,14 @@ export default function ProfilePage() {
             </div>
             <div className="absolute inset-0 z-10 bg-[#17251A]/20 backdrop-blur-[3px]" aria-hidden="true" />
             <section aria-labelledby="profile-title" className="relative z-20 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-24 sm:px-6 sm:py-8 lg:px-10">
-                <div className="mx-auto my-auto w-full max-w-[1040px] shrink-0 rounded-lg bg-white px-4 py-4 shadow-xl sm:px-10 sm:py-7 lg:flex lg:min-h-[620px] lg:flex-col lg:justify-center lg:px-14 lg:py-5">
+                <div className="mx-auto my-auto w-full max-w-[720px] shrink-0 rounded-lg bg-white px-4 py-4 shadow-xl sm:px-10 sm:py-7 lg:flex lg:min-h-[620px] lg:flex-col lg:justify-center lg:px-14 lg:py-5">
                     <header className="relative max-sm:grid max-sm:grid-cols-[44px_minmax(0,1fr)_44px] max-sm:items-center">
                         <Link href="/map" aria-label="Back to map" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base">
                             <ArrowLeft aria-hidden="true" className="size-5" />
                             <span className="hidden sm:inline">back</span>
                         </Link>
-                        <h1 id="profile-title" className="text-center text-[22px] font-bold tracking-tight max-sm:leading-tight sm:text-4xl lg:px-40 lg:text-[32px] lg:leading-tight">Profile Settings</h1>
-                        <div className="mx-auto mt-2 h-px w-32 bg-[#DCDCE2] max-sm:col-span-3 sm:mt-5 sm:w-64 lg:mt-3" />
+                        <h1 id="profile-title" className="text-center text-[22px] font-bold tracking-tight max-sm:leading-tight sm:text-4xl lg:px-40 lg:text-[24px] lg:leading-tight">Profile Settings</h1>
+                        <div className="mx-auto mt-2 h-px w-32 bg-[#DCDCE2] max-sm:col-span-3 sm:mt-5 sm:w-52 lg:mt-3" />
                     </header>
                     <form noValidate onSubmit={saveChanges} aria-busy={readingPhoto} className="mx-auto mt-3 flex w-full max-w-[470px] flex-col items-center sm:mt-6 lg:mt-4">
                         <div className="relative">
@@ -181,7 +181,7 @@ export default function ProfilePage() {
                                     <InputGroupAddon align="inline-end"><InputGroupButton size="icon-sm" aria-label="Edit username" aria-pressed={editing === "username"} onClick={() => editField("username")} className="size-10 text-[#858B89]"><Pencil aria-hidden="true" className="size-5" /></InputGroupButton></InputGroupAddon>
                                 </InputGroup>
                                 {errors.username && <p id="username-error" role="alert" className="text-sm text-[#AE3C32]">{errors.username}</p>}
-                            </div>
+                            </div>  
                             <div className="space-y-1 sm:space-y-2 lg:space-y-1">
                                 <label htmlFor="profile-email" className="block text-sm font-medium sm:text-lg lg:text-sm">Email</label>
                                 <InputGroup className="h-11 rounded-md border-[#CBD5E1] bg-white sm:h-14 lg:h-11">
@@ -202,8 +202,8 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="mt-4 flex w-full max-w-[344px] flex-col gap-2 sm:mt-7 sm:gap-6 lg:mt-4 lg:gap-2">
-                            <Button type="submit" disabled={!hasChanges || readingPhoto} className="h-11 w-full rounded-md bg-[#B5756C] text-sm text-[#171C18] hover:bg-[#A8655C] disabled:opacity-65">Save Changes</Button>
-                            <Button type="button" onClick={() => router.replace("/login")} className="h-11 w-full rounded-md bg-[#93A58F] text-sm text-[#171C18] hover:bg-[#81977C]">Logout</Button>
+                            <Button type="submit" disabled={!hasChanges || readingPhoto} className="h-11 w-full rounded-md bg-[#93A58F] text-sm text-[#171C18] hover:bg-[#81977C] disabled:opacity-65">Save Changes</Button>
+                            <Button type="button" onClick={() => router.replace("/login")} className="h-11 w-full rounded-md bg-[#B5756C] text-sm text-[#171C18] hover:bg-[#A8655C]">Logout</Button>
                         </div>
                         <p className="mt-3 text-center text-xs text-[#7A817D] sm:mt-4 lg:mt-3">Profile changes are saved on this device.</p>
                         <div className="w-full text-center text-sm sm:mt-2 sm:min-h-5" role={feedback?.kind === "error" ? "alert" : "status"} aria-live="polite">
