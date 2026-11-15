@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useMemo, useEffect } from "react";
+import axiosInstance from "@/utils/axiosInstance";
 import SpotModal from "@/components/spotModal/SpotModal";
 import SearchBar, { LocationSearchResult } from "@/components/map/SearchBar";
 import AnimalFilterChips, {
@@ -18,11 +19,6 @@ import DesktopPhotoViewer from "@/components/map/DesktopPhotoViewer";
 import MapFloatingControls from "@/components/map/MapFloatingControls";
 import { SpotPinData } from "@/components/MapComponent";
 import MapHintBanner from "@/components/spotModal/MapHintBanner";
-import {
-  fetchSpotsApi,
-  createSpotApi,
-  fetchAnimalsApi,
-} from "@/lib/api/spotApi";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ssr: false,
@@ -32,6 +28,10 @@ const MapComponent = dynamic(() => import("@/components/MapComponent"), {
     </div>
   ),
 });
+
+interface ExtendedAnimalOption extends AnimalCategoryOption {
+  animalId?: number;
+}
 
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
@@ -67,34 +67,120 @@ export default function Home() {
     address: string;
   } | null>(null);
 
-  const [backendAnimals, setBackendAnimals] = useState<AnimalCategoryOption[]>(
+  const [backendAnimals, setBackendAnimals] = useState<ExtendedAnimalOption[]>(
     []
   );
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // แปลงข้อมูลดิบจาก Backend ให้ตรงกับ SpotPinData
+  const mapRawSpotToPinData = (
+    raw: any,
+    pinLookup: Record<string, string>
+  ): SpotPinData => {
+    const lat = Number(raw.lat ?? raw.latitude ?? raw.spotLat);
+    const lng = Number(raw.lng ?? raw.lon ?? raw.longitude ?? raw.spotLng);
+
+    const categories = Array.isArray(raw.animals)
+      ? raw.animals.map((a: any) =>
+          (typeof a === "string" ? a : a.name || "animal").toLowerCase()
+        )
+      : Array.isArray(raw.category)
+      ? raw.category.map((c: string) => c.toLowerCase())
+      : ["general"];
+
+    const firstPin =
+      raw.animals?.[0]?.animalImagePin ||
+      pinLookup[categories[0]] ||
+      "ph:question";
+
+    const images = Array.isArray(raw.photos)
+      ? raw.photos
+          .map((p: any) => (typeof p === "string" ? p : p.photoUrl || p.url))
+          .filter(Boolean)
+      : Array.isArray(raw.images)
+      ? raw.images
+          .map((img: any) =>
+            typeof img === "string" ? img : img.photoUrl || img.url
+          )
+          .filter(Boolean)
+      : raw.photoUrl
+      ? [raw.photoUrl]
+      : [];
+
+    return {
+      id: String(raw.spotId || raw.id || Date.now()),
+      title: raw.title || "Animal Spot",
+      lat,
+      lng,
+      address: raw.address || "",
+      description: raw.description || "",
+      category: categories,
+      pinName: firstPin,
+      images,
+      photoUrl: images[0] || "",
+      author: {
+        name:
+          raw.user?.username ||
+          raw.user?.name ||
+          raw.author?.name ||
+          raw.authorName ||
+          "Spotter",
+        avatar: raw.user?.avatar || raw.author?.avatar || "",
+      },
+    };
+  };
 
   useEffect(() => {
     let isMounted = true;
     setIsSyncing(true);
 
-    fetchSpotsApi()
-      .then(({ spots: loadedSpots }) => {
-        if (!isMounted) return;
-        if (loadedSpots && loadedSpots.length > 0) {
-          setSpots(loadedSpots);
-          setSelectedSpot(loadedSpots[0]);
-          setShowSpotCard(true);
-        }
-      })
-      .finally(() => {
-        if (isMounted) setIsSyncing(false);
-      });
+    const loadData = async () => {
+      try {
+        // 1. ดึงข้อมูลสัตว์และ animalImagePin จาก Backend (GET /api/animals)
+        const animalRes = await axiosInstance.get("/api/animals");
+        const rawAnimals = animalRes.data?.data || animalRes.data || [];
 
-    fetchAnimalsApi().then((animals) => {
-      if (!isMounted) return;
-      if (animals && animals.length > 0) {
-        setBackendAnimals(animals);
+        const formattedAnimals: ExtendedAnimalOption[] = rawAnimals.map(
+          (item: any) => ({
+            animalId: item.animalId,
+            id: item.name.toLowerCase().trim(),
+            name: item.name.toUpperCase(),
+            pinName: item.animalImagePin || "ph:question",
+          })
+        );
+
+        const pinLookup: Record<string, string> = {};
+        formattedAnimals.forEach((a) => {
+          pinLookup[a.id] = a.pinName || "ph:question";
+        });
+
+        if (isMounted && formattedAnimals.length > 0) {
+          setBackendAnimals(formattedAnimals);
+        }
+
+        // 2. ดึงข้อมูล Spots ทั้งหมด (GET /api/spots)
+        const spotRes = await axiosInstance.get("/api/spots");
+        const rawSpots = spotRes.data?.data || spotRes.data || [];
+
+        if (isMounted && Array.isArray(rawSpots) && rawSpots.length > 0) {
+          const formattedSpots = rawSpots
+            .map((raw: any) => mapRawSpotToPinData(raw, pinLookup))
+            .filter((s) => !Number.isNaN(s.lat) && !Number.isNaN(s.lng));
+
+          setSpots(formattedSpots);
+          if (formattedSpots.length > 0) {
+            setSelectedSpot(formattedSpots[0]);
+            setShowSpotCard(true);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch map data:", err);
+      } finally {
+        if (isMounted) setIsSyncing(false);
       }
-    });
+    };
+
+    loadData();
 
     return () => {
       isMounted = false;
@@ -104,7 +190,7 @@ export default function Home() {
   // รายการหมวดหมู่สัตว์ดึงจาก Backend เท่านั้น
   const dynamicFilterChips: AnimalChipItem[] = useMemo(() => {
     const topAnimals: AnimalChipItem[] = backendAnimals
-      .slice(0, 5)
+      .slice(3, 8) // ตำแหน่ง 3-7 ของอาเรย์ (5 ตัว) เป็นสัตว์ยอดนิยม
       .map((a: any) => ({
         id: a.name,
         label: a.name.toUpperCase(),
@@ -126,7 +212,7 @@ export default function Home() {
     return map;
   }, [backendAnimals]);
 
-const filteredSpots = useMemo(() => {
+  const filteredSpots = useMemo(() => {
     return spots
       .filter((spot) => {
         const spotCats = Array.isArray(spot.category)
@@ -159,11 +245,16 @@ const filteredSpots = useMemo(() => {
         return true;
       })
       .map((spot) => {
-        // กรองให้หมุดบนแผนที่แสดงเฉพาะชนิดสัตว์ที่กำลังเลือกใน Filter (ไม่ให้สัตว์ตัวอื่นใน Spot เดียวกันโผล่มาซ้อน)
-        const cats = Array.isArray(spot.category) ? spot.category : [spot.category];
+        // กรองให้หมุดบนแผนที่แสดงเฉพาะชนิดสัตว์ที่กำลังเลือกใน Filter
+        const cats = Array.isArray(spot.category)
+          ? spot.category
+          : [spot.category];
         const filteredCats = cats.filter((cat) => {
           const lower = cat.toLowerCase();
-          if (activeAnimal !== "ALL" && lower !== activeAnimal.trim().toLowerCase()) {
+          if (
+            activeAnimal !== "ALL" &&
+            lower !== activeAnimal.trim().toLowerCase()
+          ) {
             return false;
           }
           if (
@@ -220,41 +311,80 @@ const filteredSpots = useMemo(() => {
     animals: any[];
     images: File[];
   }) => {
-    const imageUrls = newSpotData.images.map((file) =>
-      URL.createObjectURL(file)
-    );
-
     const title =
       newSpotData.animals.length > 0
         ? `${newSpotData.animals[0].name} Spot`
         : "New Animal Spot";
-    const category =
-      newSpotData.animals.length > 0
-        ? newSpotData.animals.map((animal) => animal.name.toLowerCase())
-        : [];
+
     const pinName =
       newSpotData.animals.length > 0
         ? newSpotData.animals[0].pinName ||
           animalPinMap[newSpotData.animals[0].name.toLowerCase()]
         : undefined;
 
-    const createdSpot = await createSpotApi({
-      title,
-      lat: newSpotData.lat,
-      lng: newSpotData.lng,
-      address: newSpotData.address,
-      description: newSpotData.description,
-      category,
-      images: imageUrls,
-      photoUrl: imageUrls[0] || "",
-      authorName: "Achirakorn Thawontantikun",
-      authorAvatar: "A",
-      animals: newSpotData.animals,
-    });
+    try {
+      // 1. ขอ Presigned URL และอัปโหลดรูปแต่ละไฟล์ขึ้น Cloudflare R2
+      const uploadedPhotoUrls: string[] = [];
 
-    setSpots((prev) => [{ ...createdSpot, pinName }, ...prev]);
-    setSelectedSpot({ ...createdSpot, pinName });
-    setShowSpotCard(true);
+      for (const file of newSpotData.images) {
+        const presignRes = await axiosInstance.post("/api/spots/presigned-url", {
+          fileName: file.name,
+          fileType: file.type,
+        });
+
+        const { uploadUrl, publicUrl } = presignRes.data.data;
+
+        await fetch(uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type,
+          },
+          body: file,
+        });
+
+        uploadedPhotoUrls.push(publicUrl);
+      }
+
+      // 2. เตรียมอาเรย์ของ animalId สำหรับส่งให้ Backend
+      const mappedAnimals = newSpotData.animals
+        .map((a: any) => {
+          if (a.animalId) return { animalId: a.animalId };
+          const found = backendAnimals.find(
+            (ba) => ba.name.toLowerCase() === a.name.toLowerCase()
+          );
+          return found?.animalId ? { animalId: found.animalId } : null;
+        })
+        .filter(Boolean);
+
+      // 3. ส่ง JSON ไปบันทึก Spot ลง Database (POST /api/spots)
+      const response = await axiosInstance.post("/api/spots", {
+        title,
+        description: newSpotData.description,
+        address: newSpotData.address,
+        lat: newSpotData.lat,
+        lng: newSpotData.lng,
+        photoUrls: uploadedPhotoUrls,
+        animals: mappedAnimals,
+        date: new Date().toISOString(),
+      });
+
+      const rawCreated = response.data?.data || response.data;
+      const createdSpot = mapRawSpotToPinData(
+        {
+          ...rawCreated,
+          photos: uploadedPhotoUrls,
+          animals: newSpotData.animals,
+        },
+        animalPinMap
+      );
+
+      setSpots((prev) => [{ ...createdSpot, pinName }, ...prev]);
+      setSelectedSpot({ ...createdSpot, pinName });
+      setShowSpotCard(true);
+    } catch (err) {
+      console.error("Failed to create spot:", err);
+      alert("ไม่สามารถบันทึก Spot ได้ กรุณาตรวจสอบการเชื่อมต่อหรือลองใหม่อีกครั้ง");
+    }
   };
 
   return (

@@ -115,8 +115,16 @@ function clusterSpotsByDistance(
 
   const categoryMap: { [cat: string]: SpotPinData[] } = {};
   spots.forEach((spot) => {
-    if (!spot.category) return;
-    const cats = Array.isArray(spot.category) ? spot.category : [spot.category];
+    if (Number.isNaN(spot.lat) || Number.isNaN(spot.lng)) return;
+
+    // ถ้าไม่มี category หรือเป็นอาเรย์ว่าง [] ให้จัดเข้ากลุ่ม "general" เพื่อไม่ให้หมุดหายตอนซูมออก
+    const rawCats = Array.isArray(spot.category)
+      ? spot.category
+      : spot.category
+      ? [spot.category]
+      : [];
+    const cats = rawCats.length > 0 ? rawCats : ["general"];
+
     cats.forEach((cat) => {
       const normalized = cat.toLowerCase();
       if (!categoryMap[normalized]) categoryMap[normalized] = [];
@@ -177,25 +185,6 @@ const isPointInPolygon = (
   return inside;
 };
 
-// ใช้ AnimalIcon (Iconify) แทนอิโมจิ
-interface ClusterPinIconProps {
-  pinName?: string;
-  count: number;
-}
-
-function ClusterPinIcon({ pinName, count }: ClusterPinIconProps) {
-  return (
-    <div className="relative size-11 rounded-full bg-accent shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105 text-secondary">
-      <AnimalIcon pinName={pinName} className="size-6" />
-      {count > 1 && (
-        <span className="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-[10px] font-bold size-[18px] rounded-full flex items-center justify-center shadow-md select-none">
-          {count}
-        </span>
-      )}
-    </div>
-  );
-}
-
 export default function MapComponent({
   spots = [],
   animalPinMap,
@@ -245,8 +234,9 @@ export default function MapComponent({
       );
 
       clusters.forEach((cluster) => {
-        const count = cluster.spots.length;
+        if (Number.isNaN(cluster.centerLat) || Number.isNaN(cluster.centerLng)) return;
 
+        const count = cluster.spots.length;
         const iconCode = cluster.pinName || "ph:question";
 
         const categoryIcon = L.divIcon({
@@ -283,10 +273,12 @@ export default function MapComponent({
       });
     } else {
       currentSpots.forEach((spot) => {
+        if (Number.isNaN(spot.lat) || Number.isNaN(spot.lng)) return;
+
         const validPhotoUrl = spot.photoUrl || spot.images?.[0] || "";
         const fallbackPin =
-          spot.pinName ||
-          animalPinMapRef.current?.[spot.category?.[0]?.toLowerCase() || ""];
+          animalPinMapRef.current?.[spot.category?.[0]?.toLowerCase() || ""] ||
+          spot.pinName;
         const fallbackIconCode = fallbackPin || "ph:question";
 
         const photoPinIcon = L.divIcon({
@@ -363,14 +355,6 @@ export default function MapComponent({
 
     const { lat, lng, name } = flyToTarget;
 
-    // เช็คว่าอยู่ในกรอบ 4 เหลี่ยม เขต มจธ. บางมด หรือไม่ (ขยายขอบเผื่อรอบรั้วเล็กน้อย)
-    // const allowedBounds = L.polygon(customPolygonCoords).getBounds().pad(0.3);
-    // if (!allowedBounds.contains([lat, lng])) {
-    //   console.log("Location is outside Bangmod campus area");
-    //   return;
-    // }
-
-    // เช็คว่าอยู่ใน Polygon เขต มจธ. บางมด หรือไม่
     if (!isPointInPolygon(lat, lng, customPolygonCoords)) {
       console.warn("Location is outside KMUTT campus polygon:", lat, lng);
       return;
