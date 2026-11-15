@@ -26,11 +26,9 @@ const MapComponent = dynamic(() => import("@/components/MapComponent"), {
 
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
-  const [spots, setSpots] = useState<SpotPinData[]>(SAMPLE_SPOTS);
-  const [showSpotCard, setShowSpotCard] = useState(true);
-  const [selectedSpot, setSelectedSpot] = useState<SpotPinData | null>(
-    SAMPLE_SPOTS[0],
-  );
+  const [spots, setSpots] = useState<SpotPinData[]>([]);
+  const [showSpotCard, setShowSpotCard] = useState(false);
+  const [selectedSpot, setSelectedSpot] = useState<SpotPinData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     "Cat",
   );

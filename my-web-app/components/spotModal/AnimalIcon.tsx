@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 
 export default function AnimalIcon({ 
   pinName, 
-  className = "w-5 h-5 text-slate-700" 
+  className = "w-5 h-5 text-current" 
 }: { 
   pinName: string; 
   className?: string; 

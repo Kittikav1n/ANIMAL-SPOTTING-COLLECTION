@@ -187,10 +187,10 @@ interface ClusterPinIconProps {
 
 function ClusterPinIcon({ pinName, count }: ClusterPinIconProps) {
   return (
-    <div className="relative size-11 rounded-full bg-[#E0ECDD] border-[1.5px] border-[#536E50]/40 shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105 text-[#3B5238]">
+    <div className="relative size-11 rounded-full bg-accent shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105 text-secondary">
       <AnimalIcon pinName={pinName} className="size-6" />
       {count > 1 && (
-        <span className="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-[10px] font-bold size-[18px] rounded-full border-[1.5px] border-white flex items-center justify-center shadow-md select-none">
+        <span className="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-[10px] font-bold size-[18px] rounded-full flex items-center justify-center shadow-md select-none">
           {count}
         </span>
       )}
@@ -290,8 +290,8 @@ export default function MapComponent({
               </div>
             `
             : renderToString(
-                <div className="size-11 rounded-full bg-[#E0ECDD] border-2 border-white shadow-md flex items-center justify-center cursor-pointer text-[#3B5238]">
-                  <AnimalIcon pinName={fallbackPin} className="size-6" />
+                <div className="size-11 rounded-full bg-accent shadow-md flex items-center justify-center cursor-pointer text-secondary">
+                  <AnimalIcon pinName={fallbackPin || "ph:question"} className="size-6 text-current"/>
                 </div>
               ),
           iconSize: [48, 48],
@@ -320,16 +320,16 @@ export default function MapComponent({
     updateMarkersRef.current?.(true);
   }, [spots, animalPinMap]);
 
-  // บินไปยังจุดที่กำหนดเมื่อ flyToTarget เปลี่ยน
-  // useEffect(() => {
-  //   if (!mapRef.current || !zoomTrigger) return;
-  //   if (zoomTrigger.type === "in") {
-  //     mapRef.current.zoomIn();
-  //   } else if (zoomTrigger.type === "out") {
-  //     mapRef.current.zoomOut();
-  //   }
-  // }, [zoomTrigger]);
+  useEffect(() => {
+    if (!mapRef.current || !zoomTrigger) return;
+    if (zoomTrigger.type === "in") {
+      mapRef.current.zoomIn();
+    } else if (zoomTrigger.type === "out") {
+      mapRef.current.zoomOut();
+    }
+  }, [zoomTrigger]);
 
+  // บินไปยังจุดที่กำหนดเมื่อ flyToTarget เปลี่ยน
   // useEffect(() => {
   //   if (!mapRef.current || !flyToTarget) return;
 
@@ -355,10 +355,16 @@ export default function MapComponent({
 
     const { lat, lng, name } = flyToTarget;
 
-    // เช็คว่าอยู่ในกรอบเขต มจธ. บางมด หรือไม่
-    const allowedBounds = L.polygon(customPolygonCoords).getBounds().pad(0.2);
-    if (!allowedBounds.contains([lat, lng])) {
-      console.log("Location is outside Bangmod campus area");
+    // เช็คว่าอยู่ในกรอบ 4 เหลี่ยม เขต มจธ. บางมด หรือไม่ (ขยายขอบเผื่อรอบรั้วเล็กน้อย)
+    // const allowedBounds = L.polygon(customPolygonCoords).getBounds().pad(0.3);
+    // if (!allowedBounds.contains([lat, lng])) {
+    //   console.log("Location is outside Bangmod campus area");
+    //   return;
+    // }
+
+    // เช็คว่าอยู่ใน Polygon เขต มจธ. บางมด หรือไม่
+    if (!isPointInPolygon(lat, lng, customPolygonCoords)) {
+      console.warn("Location is outside KMUTT campus polygon:", lat, lng);
       return;
     }
 

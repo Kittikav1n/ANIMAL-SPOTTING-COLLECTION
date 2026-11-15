@@ -121,7 +121,7 @@ export async function fetchSpotsApi(): Promise<{
   isFromBackend: boolean;
 }> {
   try {
-    const response = await axiosInstance.get("/api/spots", { timeout: 4000 });
+    const response = await axiosInstance.get("/api/spots");
     const data = response.data;
 
     let spotList: any[] = [];
@@ -150,9 +150,7 @@ export async function createSpotApi(
   payload: CreateSpotPayload
 ): Promise<SpotPinData> {
   try {
-    const response = await axiosInstance.post("/api/spots", payload, {
-      timeout: 5000,
-    });
+    const response = await axiosInstance.post("/api/spots", payload);
     const data = response.data;
 
     if (data && data.success && data.data) {
@@ -187,7 +185,7 @@ export async function createSpotApi(
  */
 export async function fetchAnimalsApi(): Promise<AnimalCategoryOption[]> {
   try {
-    const response = await axiosInstance.get("/api/animals", { timeout: 4000 });
+    const response = await axiosInstance.get("/api/animals");
     const data = response.data;
 
     let animalList: BackendAnimalItem[] = [];

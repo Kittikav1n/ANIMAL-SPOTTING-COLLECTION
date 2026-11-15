@@ -198,8 +198,8 @@ export default function AnimalFilterDrawer({
                 >
                   {/* Animal Iconify icon + Name */}
                   <div className="flex items-center gap-2.5">
-                    <div className="size-7.5 rounded-full bg-[#E0ECDD] border border-[#536E50]/40 text-secondary flex items-center justify-center shadow-2xs shrink-0">
-                      <AnimalIcon pinName={iconCode} className="w-4 h-4" />
+                    <div className="size-7.5 rounded-full bg-accent text-secondary flex items-center justify-center shrink-0">
+                      <AnimalIcon pinName={iconCode} className="w-4 h-4 text-current" />
                     </div>
                     <span className="font-bold text-xs tracking-wider uppercase">
                       {opt.name}
