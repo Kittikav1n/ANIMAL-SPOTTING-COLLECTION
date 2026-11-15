@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import SpotModal from "@/components/spotModal/SpotModal";
 import SearchBar from "@/components/map/SearchBar";
 import AnimalFilterChips from "@/components/map/AnimalFilterChips";
@@ -14,6 +14,7 @@ import DesktopPhotoViewer from "@/components/map/DesktopPhotoViewer";
 import MapFloatingControls from "@/components/map/MapFloatingControls";
 import { SpotPinData, SAMPLE_SPOTS } from "@/components/MapComponent";
 import MapHintBanner from "@/components/spotModal/MapHintBanner";
+import axiosInstance from "@/utils/axiosInstance";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ssr: false,
@@ -72,7 +73,7 @@ export default function Home() {
       // 1. Drawer Multi-select Filter
       if (selectedCategories.length > 0) {
         const matchesDrawer = selectedCategories.some((sel) =>
-          spotCats.includes(sel.toLowerCase())
+          spotCats.includes(sel.toLowerCase()),
         );
         if (!matchesDrawer) return false;
       }
@@ -103,7 +104,9 @@ export default function Home() {
 
   const handleSelectSpot = (spot: SpotPinData) => {
     setSelectedSpot(spot);
-    setSelectedCategory(Array.isArray(spot.category) ? spot.category[0] : spot.category);
+    setSelectedCategory(
+      Array.isArray(spot.category) ? spot.category[0] : spot.category,
+    );
     setShowSpotCard(true);
   };
 
@@ -123,51 +126,48 @@ export default function Home() {
     setPhotoViewerOpen(true);
   };
 
-  // callback บันทึกข้อมูลจาก form ลง state ส่ง spot ไปเเสดง
-  const handleAddNewSpot = (newSpotData: {
-    lat: number;
-    lng: number;
-    address: string;
-    description: string;
-    animals: any[];
-    images: File[];
-  }) => {
-    const imageUrls = newSpotData.images.map((file) =>
-      URL.createObjectURL(file),
-    );
-    console.log("Data: ",newSpotData);
+  const fetchSpots = async () => {
+    try {
+      const response = await axiosInstance.get("/api/spots");
+      const fallbackImage =
+        "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop";
 
-    const createdSpot: SpotPinData = {
-      id: Date.now().toString(),
-      title:
-        newSpotData.animals.length > 0
-          ? `${newSpotData.animals[0].name} Spot`
-          : "New Animal Spot",
-      category:
-        newSpotData.animals.length > 0
-          ? newSpotData.animals.map((animal) => animal.name)
-          : ["General"],
-      lat: newSpotData.lat,
-      lng: newSpotData.lng,
-      address: newSpotData.address,
-      description: newSpotData.description,
-      author: { name: "Achirakorn Thawontantikun", avatar: "A" },
-      images:
-        imageUrls.length > 0
-          ? imageUrls
-          : [
-              "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
-            ],
-      photoUrl: imageUrls[0] || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
-    };
+      const formattedSpots: SpotPinData[] = response.data.data.map(
+        (spot: any) => ({
+          id: String(spot.spotId),
+          title: spot.title,
+          category:
+            spot.animals?.length > 0
+              ? spot.animals.map((a: any) => a.name)
+              : ["General"],
+          lat: Number(spot.latitude),
+          lng: Number(spot.longitude),
+          address: spot.address,
+          description: spot.description,
+          author: {
+            name: spot.user?.username || "Unknown",
+            avatar: (spot.user?.username?.[0] || "U").toUpperCase(),
+          },
+          images:
+            spot.photos?.length > 0
+              ? spot.photos.map((p: any) => p.photoUrl)
+              : [fallbackImage],
+          photoUrl: spot.photos?.[0]?.photoUrl || fallbackImage,
+        }),
+      );
 
-    console.log("Created Spot: ", createdSpot);
-
-    setSpots((prev) => [...prev, createdSpot]);
-    // ตอนนี้ให้เเสดงดดค่ selectedspot ก่อนเเต่ยังไม่ได้เก็บข้อมูลจริงๆ
-    setSelectedSpot(createdSpot);
-    setShowSpotCard(true);
+      setSpots(formattedSpots);
+      if (formattedSpots.length > 0 && !selectedSpot) {
+        setSelectedSpot(formattedSpots[0]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch spots:", error);
+    }
   };
+
+  useEffect(() => {
+    fetchSpots();
+  }, []);
 
   return (
     <main className="flex flex-1 flex-col h-full w-full relative overflow-hidden">
@@ -274,7 +274,7 @@ export default function Home() {
         isOpen={isOpen}
         onClose={setIsOpen}
         spotData={addSpotCoord}
-        onSaveSpot={handleAddNewSpot}
+        onSaveSpot={fetchSpots}
       />
     </main>
   );

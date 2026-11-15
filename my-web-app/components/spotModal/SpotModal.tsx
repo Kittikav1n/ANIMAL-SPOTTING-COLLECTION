@@ -54,14 +54,7 @@ interface SpotModalProps {
     lng: number;
     address: string;
   } | null;
-  onSaveSpot: (data: {
-    lat: number;
-    lng: number;
-    address: string;
-    description: string;
-    animals: AnimalItem[];
-    images: File[];
-  }) => void;
+  onSaveSpot: () => void;
 }
 
 export default function SpotModal({
@@ -82,6 +75,8 @@ export default function SpotModal({
   const [isEditingImages, setIsEditingImages] = useState(false);
   const [animalsList, setAnimalsList] = useState<AnimalItem[]>([]);
   const [isLoadingAnimals, setIsLoadingAnimals] = useState(false);
+  const [isLoadingSaveSpot, setIsLoadingSaveSpots] = useState(false);
+  const [title, setTitle] = useState("");
 
   // เพิ่มสัตว์ลงในรายการที่เลือก
   const handleSelectAnimal = (animal: AnimalItem) => {
@@ -90,40 +85,81 @@ export default function SpotModal({
 
   // ลบสัตว์ออกจากรายการที่เลือก
   const handleRemoveAnimal = (animalId: number) => {
-    setSelectedAnimals((prev) => prev.filter((item) => item.animalId !== animalId));
+    setSelectedAnimals((prev) =>
+      prev.filter((item) => item.animalId !== animalId),
+    );
   };
 
   // กรองสัตว์ที่ไม่ถูกเลือก และตรงกับคำค้นหา
   const availableAnimals = animalsList.filter(
     (animal) =>
-      !selectedAnimals.some((selected) => selected.animalId === animal.animalId) &&
-      animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      !selectedAnimals.some(
+        (selected) => selected.animalId === animal.animalId,
+      ) && animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
   //save spot จาก form infomation
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!spotData) {
       alert("ไม่พบข้อมูลพิกัดตำแหน่งบนแผนที่");
       return;
     }
 
-    onSaveSpot({
-      lat: spotData.lat,
-      lng: spotData.lng,
-      address: spotData.address,
-      description: description,
-      animals: selectedAnimals,
-      images: selectedImages,
-    });
+    try {
+      setIsLoadingSaveSpots(true);
+      const uploadedPhotoUrls: string[] = [];
 
-    setDescription("");
-    setSelectedAnimals([]);
-    setSelectedImages([]);
-    onClose(false);
+      for (const file of selectedImages) {
+        const presignedRes = await axiosInstance.post("/api/spots/presigned-url", {
+          fileName: file.name,
+          fileType: file.type,
+        });
+
+        if (presignedRes.data.success) {
+          const { uploadUrl, publicUrl } = presignedRes.data.data;
+          await axiosInstance.put(uploadUrl, file, {
+            headers: {
+              "Content-Type": file.type,
+            },
+          });
+          uploadedPhotoUrls.push(publicUrl);
+        }
+      }
+
+      const saveResponse = await axiosInstance.post("/api/spots", {
+        title: title && title.trim() !== '' ? title : 'New Animal Spot',
+        description: description,
+        address: spotData.address,
+        lat: spotData.lat,
+        lng: spotData.lng,
+        photoUrls: uploadedPhotoUrls,
+        animals: selectedAnimals,
+        date: selectedDate,
+      });
+
+      onSaveSpot();
+
+      if (saveResponse.data.success) {
+        alert("Spot already saved");
+
+        setDescription("");
+        setTitle("");
+        setSelectedAnimals([]);
+        setSelectedImages([]);
+        onClose(false);
+      }
+    } catch (error) {
+      console.error("Error uploading spot with presigned url:", error);
+      alert("Occur error cannot add spot");
+    } finally {
+      setIsLoadingSaveSpots(false);
+    }
   };
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setView("main");
+      setTitle("");
       setDescription("");
       setSelectedAnimals([]);
       setSelectedImages([]);
@@ -142,7 +178,6 @@ export default function SpotModal({
         const response = await axiosInstance.get("/api/animals");
         console.log(response);
         if (response.data.success) {
-
           setAnimalsList(response.data.data);
         }
       } catch (err) {
@@ -223,6 +258,15 @@ export default function SpotModal({
                     ))}
                   </div>
                 )}
+                {/* Title input */}
+                <div className="w-full">
+                  <Input
+                    placeholder="Enter spot title (e.g., Friendly cat near garden)"
+                    className="w-full rounded-xl border-slate-200 bg-white text-sm h-11 focus-visible:ring-emerald-700"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </div>
 
                 {/* Spot Description */}
                 <div className="w-full min-h-[250px] md:min-h-full rounded-xl border border-slate-200 p-3 overflow-y-auto custom-scrollbar bg-white focus-within:ring-2 focus-within:ring-emerald-700 flex flex-col">
@@ -394,6 +438,7 @@ export default function SpotModal({
               {/* Save Btn */}
               <Button
                 onClick={handleSave}
+                disabled={isLoadingSaveSpot}
                 className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 rounded-xl font-medium"
               >
                 Continue
