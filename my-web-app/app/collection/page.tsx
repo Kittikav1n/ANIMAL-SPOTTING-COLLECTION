@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import GuestProfileContent from "@/components/auth/GuestProfileContent";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { SpotPinData } from "@/components/MapComponent";
 import { ArrowLeft, ChevronLeft, ChevronRight, Images, MapPin, User } from "lucide-react";
@@ -79,6 +80,55 @@ function SpotPost({ spot }: { spot: SpotPinData }) {
 }
 
 export default function Collection() {
+    const [authStatus, setAuthStatus] = useState<
+        "checking" | "guest" | "member" | "error"
+    >("checking");
+    const [sessionCheck, setSessionCheck] = useState(0);
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        async function checkSession() {
+            try {
+                const response = await fetch(
+                    "http://localhost:5001/api/auth/me",
+                    {
+                        credentials: "include",
+                        cache: "no-store",
+                        signal: controller.signal,
+                    },
+                );
+
+                if (controller.signal.aborted) return;
+
+                if (response.status === 401) {
+                    setAuthStatus("guest");
+                    return;
+                }
+
+                if (!response.ok) throw new Error("Session check failed");
+
+                const result = await response.json();
+
+                if (result.success !== true || !result.data?.userID) {
+                    throw new Error("Invalid session response");
+                }
+
+                if (!controller.signal.aborted) {
+                    setAuthStatus("member");
+                }
+            } catch {
+                if (!controller.signal.aborted) {
+                    setAuthStatus("error");
+                }
+            }
+        }
+
+        void checkSession();
+
+        return () => controller.abort();
+    }, [sessionCheck]);
+
     const saveProfile = useSyncExternalStore(subscribeToProfile, readProfile, () => "");
     let profile: { username?: string; email?: string; avatar?: string } | null = null;
     try {
@@ -93,6 +143,8 @@ export default function Collection() {
     const gridPosition = useRef<{ spotId: string; scrollTop: number } | null>(null);
 
     useEffect(() => {
+        if (authStatus !== "member") return;
+
         let active = true;
 
         import("@/components/MapComponent")
@@ -102,9 +154,11 @@ export default function Collection() {
             .catch((error) => console.error("Could not load sample spots", error));
 
         return () => { active = false; };
-    }, []);
+    }, [authStatus]);
 
     useLayoutEffect(() => {
+        if (authStatus !== "member") return;
+
         if (selectedSpotId) {
             const scroller = detailScrollRef.current;
             const post = document.getElementById(`collection-post-${selectedSpotId}`);
@@ -120,14 +174,16 @@ export default function Collection() {
             document.getElementById(`collection-spot-${spotId}`)?.focus({ preventScroll: true });
             gridPosition.current = null;
         }
-    }, [selectedSpotId]);
+    }, [authStatus, selectedSpotId]);
 
     function openSpot(spotId: string) {
         gridPosition.current = { spotId, scrollTop: gridScrollRef.current?.scrollTop ?? 0 };
         setSelectedSpotId(spotId);
     }
 
-    const selectedSpot = sampleSpots?.find((spot) => spot.id === selectedSpotId);
+    const selectedSpot = authStatus === "member"
+        ? sampleSpots?.find((spot) => spot.id === selectedSpotId)
+        : undefined;
 
     const profileSummary = {
         avatar: profile?.avatar ?? "",
@@ -144,9 +200,43 @@ export default function Collection() {
 
             <div
                 ref={selectedSpot ? undefined : gridScrollRef}
-                className={`relative z-20 min-h-0 min-w-0 flex-1 px-4 pt-4 pb-24 sm:p-8 ${selectedSpot ? "flex overflow-hidden" : "overflow-y-auto"}`}
+                className={`relative z-20 min-h-0 min-w-0 flex-1 px-4 pt-4 pb-24 sm:p-8 ${selectedSpot ? "flex overflow-hidden" : authStatus !== "member" ? "flex flex-col overflow-y-auto" : "overflow-y-auto"}`}
             >
-                {selectedSpot ? (
+                {authStatus !== "member" ? (
+                    <section aria-labelledby="collection-title" className="mx-auto my-auto w-full max-w-[560px] shrink-0 rounded-lg bg-white px-4 py-5 shadow-md sm:px-10 lg:px-14">
+                        <header className="relative grid grid-cols-[44px_minmax(0,1fr)_44px] items-center sm:grid-cols-[80px_minmax(0,1fr)_80px]">
+                            <Link href="/map" aria-label="Back to map" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] sm:justify-start">
+                                <ArrowLeft aria-hidden="true" className="size-5" />
+                                <span className="hidden sm:inline">back</span>
+                            </Link>
+                            <h1 id="collection-title" className="text-center text-xl font-bold leading-tight tracking-tight">Collection</h1>
+                            <div className="col-span-3 mx-auto mt-3 h-px w-52 max-w-full bg-[#DCDCE2]" />
+                        </header>
+                        {authStatus === "checking" && (
+                            <p role="status" className="mt-6 text-center text-sm text-[#7A817D]">
+                                Checking your account...
+                            </p>
+                        )}
+                        {authStatus === "error" && (
+                            <div className="mt-6 text-center">
+                                <p role="alert" className="text-sm text-[#AE3C32]">
+                                    Cannot connect to the server.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setAuthStatus("checking");
+                                        setSessionCheck((current) => current + 1);
+                                    }}
+                                    className="mt-3 min-h-11 cursor-pointer rounded-md border border-[#526E4E] px-5 text-sm text-[#526E4E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E]"
+                                >
+                                    Try again
+                                </button>
+                            </div>
+                        )}
+                        {authStatus === "guest" && <GuestProfileContent />}
+                    </section>
+                ) : selectedSpot ? (
                     <section aria-label="Spotting details" className="mx-auto flex min-h-0 w-full max-w-[1040px] flex-col overflow-hidden rounded-lg bg-white shadow-md">
                         <header className="shrink-0 px-4 pt-3 sm:px-8 sm:pt-5">
                             <button
@@ -166,17 +256,17 @@ export default function Collection() {
                         </div>
                     </section>
                 ) : (
-                    <section aria-labelledby="collection-title" className="mx-auto w-full max-w-[1040px] rounded-lg bg-white p-6 shadow-md max-[360px]:px-3">
+                    <section aria-labelledby="collection-title" className="mx-auto w-full max-w-[920px] rounded-lg bg-white p-6 shadow-md max-[360px]:px-3">
                         <header className="relative max-sm:grid max-sm:grid-cols-[44px_minmax(0,1fr)_44px] max-sm:items-center">
                             <Link href="/map" aria-label="Back to map" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base">
                                 <ArrowLeft aria-hidden="true" className="size-5" />
                                 <span className="hidden sm:inline">back</span>
                             </Link>
-                            <h1 id="collection-title" className="text-center text-[22px] font-bold tracking-tight max-sm:leading-tight sm:text-4xl lg:px-40 lg:text-[32px] lg:leading-tight">Collection</h1>
-                            <div className="mx-auto mt-2 h-px w-32 bg-[#DCDCE2] max-sm:col-span-3 sm:mt-5 sm:w-64" />
+                            <h1 id="collection-title" className="text-center text-[22px] font-bold tracking-tight max-sm:leading-tight sm:text-4xl lg:px-40 lg:text-[24px] lg:leading-tight">Collection</h1>
+                            <div className="mx-auto mt-2 h-px w-32 bg-[#DCDCE2] max-sm:col-span-3 sm:mt-5 sm:w-52" />
                         </header>
                         <div className="mx-auto mt-6 flex w-full max-w-[900px] flex-col gap-6 sm:gap-8">
-                            <div className="flex w-full items-center justify-center gap-4 rounded-lg border border-slate-200 p-6 shadow-sm max-[360px]:gap-3 max-[360px]:px-3 sm:gap-6 sm:p-8">
+                            <div className="flex w-full items-center justify-center gap-4 rounded-lg p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] max-[360px]:gap-3 max-[360px]:px-3 sm:gap-18 sm:p-8">
                                 {/*profile*/}
                                 <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] text-[#526E4E] sm:size-28">
                                     {profileSummary.avatar ? (
@@ -189,19 +279,19 @@ export default function Collection() {
                                         <User className="size-8 sm:size-14" strokeWidth={1.5} aria-hidden="true" />
                                     )}
                                 </div>
-                                <dl className="min-w-0 space-y-2 text-base text-slate-900 sm:text-lg">
+                                <dl className="min-w-0 space-y-2 text-sm text-slate-900 sm:text-lg">
                                     {/*name*/}
-                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-4 sm:grid-cols-[5rem_minmax(0,1fr)]">
                                         <dt className="font-medium">Name</dt>
                                         <dd className="break-words">{profileSummary.name}</dd>
                                     </div>
                                     {/*email*/}
-                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-4 sm:grid-cols-[5rem_minmax(0,1fr)]">
                                         <dt className="font-medium">Email</dt>
                                         <dd className="[overflow-wrap:anywhere]">{profileSummary.email}</dd>
                                     </div>
                                     {/*spot*/}
-                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)]">
+                                    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-x-4 sm:grid-cols-[5rem_minmax(0,1fr)]">
                                         <dt className="font-medium">Spotting</dt>
                                         <dd>{profileSummary.spottingCount}</dd>
                                     </div>
