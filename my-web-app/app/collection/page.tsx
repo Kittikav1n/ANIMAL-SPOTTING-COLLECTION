@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { isAxiosError } from "axios";
+import axiosInstance from "@/utils/axiosInstance";
 import GuestProfileContent from "@/components/auth/GuestProfileContent";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { SpotPinData } from "@/components/MapComponent";
@@ -90,25 +92,17 @@ export default function Collection() {
 
         async function checkSession() {
             try {
-                const response = await fetch(
-                    "http://localhost:5001/api/auth/me",
+                const response = await axiosInstance.get(
+                    "/api/auth/me",
                     {
-                        credentials: "include",
-                        cache: "no-store",
+                        withCredentials: true,
                         signal: controller.signal,
                     },
                 );
 
                 if (controller.signal.aborted) return;
 
-                if (response.status === 401) {
-                    setAuthStatus("guest");
-                    return;
-                }
-
-                if (!response.ok) throw new Error("Session check failed");
-
-                const result = await response.json();
+                const result = response.data;
 
                 if (result.success !== true || !result.data?.userID) {
                     throw new Error("Invalid session response");
@@ -117,9 +111,13 @@ export default function Collection() {
                 if (!controller.signal.aborted) {
                     setAuthStatus("member");
                 }
-            } catch {
+            } catch (error) {
                 if (!controller.signal.aborted) {
-                    setAuthStatus("error");
+                    setAuthStatus(
+                        isAxiosError(error) && error.response?.status === 401
+                            ? "guest"
+                            : "error",
+                    );
                 }
             }
         }

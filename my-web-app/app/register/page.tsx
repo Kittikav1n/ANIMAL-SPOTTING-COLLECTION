@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { isAxiosError } from "axios";
+import axiosInstance from "@/utils/axiosInstance";
 import Link from "next/link";
 import registerMap from "./register-map.webp";
 import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Pencil } from "lucide-react";
@@ -58,24 +60,14 @@ export default function Register() {
         setIsSubmitting(true);
 
         try {
-            const response = await fetch(
-                "http://localhost:5001/api/auth/register",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        username,
-                        email,
-                        password,
-                    }),
-                },
+            const response = await axiosInstance.post(
+                "/api/auth/register",
+                { username, email, password },
             );
 
-            const result = await response.json();
+            const result = response.data;
 
-            if (!response.ok || result.success !== true) {
+            if (result.success !== true) {
                 setMessage(
                     typeof result.message === "string"
                         ? result.message
@@ -86,8 +78,16 @@ export default function Register() {
 
             setIsSuccess(true);
             setMessage("Registration successful. You can now sign in.");
-        } catch {
-            setMessage("Cannot connect to the server. Please try again.");
+        } catch (error) {
+            if (isAxiosError(error) && error.response) {
+                setMessage(
+                    typeof error.response.data?.message === "string"
+                        ? error.response.data.message
+                        : "Registration failed. Please try again.",
+                );
+            } else {
+                setMessage("Cannot connect to the server. Please try again.");
+            }
         } finally {
             setIsSubmitting(false);
         }

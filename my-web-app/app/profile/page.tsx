@@ -2,8 +2,10 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { isAxiosError } from "axios";
+import axiosInstance from "@/utils/axiosInstance";
 import GuestProfileContent from "@/components/auth/GuestProfileContent";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowLeft, User, Mail, Lock, Pencil, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,31 +24,6 @@ const STORAGE_EVENT = "animal-spotting:profile-updated";
 const DEFAULT_PROFILE: Profile = { username: "FirstName LastName", email: "name@example.com", avatar: "" };
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
-function subscribeToProfile(callback: () => void) {
-    window.addEventListener("storage", callback);
-    window.addEventListener(STORAGE_EVENT, callback);
-    return () => {
-        window.removeEventListener("storage", callback);
-        window.removeEventListener(STORAGE_EVENT, callback);
-    };
-}
-
-function getProfileSnapshot() {
-    try { return window.localStorage.getItem(STORAGE_KEY) ?? ""; }
-    catch { return ""; }
-}
-
-function parseProfile(snapshot: string): Profile {
-    try {
-        const value: unknown = JSON.parse(snapshot);
-        if (!value || typeof value !== "object") return DEFAULT_PROFILE;
-        const profile = value as Partial<Profile>;
-        if (typeof profile.username !== "string" || typeof profile.email !== "string") return DEFAULT_PROFILE;
-        const avatar = typeof profile.avatar === "string" && /^data:image\/(png|jpeg|webp);base64,/.test(profile.avatar)
-            ? profile.avatar : "";
-        return { username: profile.username, email: profile.email, avatar };
-    } catch { return DEFAULT_PROFILE; }
-}
 
 const MapComponent = dynamic(
     () => import("@/components/MapComponent"),
@@ -64,31 +41,25 @@ export default function ProfilePage() {
     >("checking");
 
     const [sessionCheck, setSessionCheck] = useState(0);
+    const [savedProfile, setSavedProfile] =
+    useState<Profile>(DEFAULT_PROFILE);
 
     useEffect(() => {
         const controller = new AbortController();
 
         async function checkSession() {
             try {
-                const response = await fetch(
-                    "http://localhost:5001/api/auth/me",
+                const response = await axiosInstance.get(
+                    "/api/auth/me",
                     {
-                        credentials: "include",
-                        cache: "no-store",
+                        withCredentials: true,
                         signal: controller.signal,
                     },
                 );
 
                 if (controller.signal.aborted) return;
 
-                if (response.status === 401) {
-                    setAuthStatus("guest");
-                    return;
-                }
-
-                if (!response.ok) throw new Error("Session check failed");
-
-                const result = await response.json();
+                const result = response.data;
 
                 if (result.success !== true || !result.data?.userID) {
                     throw new Error("Invalid session response");
@@ -97,9 +68,13 @@ export default function ProfilePage() {
                 if (!controller.signal.aborted) {
                     setAuthStatus("member");
                 }
-            } catch {
+            } catch (error) {
                 if (!controller.signal.aborted) {
-                    setAuthStatus("error");
+                    setAuthStatus(
+                        isAxiosError(error) && error.response?.status === 401
+                            ? "guest"
+                            : "error",
+                    );
                 }
             }
         }
@@ -108,8 +83,8 @@ export default function ProfilePage() {
 
         return () => controller.abort();
     }, [sessionCheck]);
-    const snapshot = useSyncExternalStore(subscribeToProfile, getProfileSnapshot, () => "");
-    const savedProfile = useMemo(() => parseProfile(snapshot), [snapshot]);
+
+
     const [draft, setDraft] = useState<Profile | null>(null);
     const [editing, setEditing] = useState<Field | null>(null);
     const [feedback, setFeedback] = useState<Feedback>(null);
@@ -128,19 +103,13 @@ export default function ProfilePage() {
         setFeedback(null);
 
         try {
-            const response = await fetch(
-                "http://localhost:5001/api/auth/logout",
-                {
-                    method: "POST",
-                    credentials: "include",
-                },
+            const response = await axiosInstance.post(
+                "/api/auth/logout",
+                undefined,
+                { withCredentials: true },
             );
 
-            if (!response.ok) {
-                throw new Error("Logout failed");
-            }
-
-            const result = await response.json();
+            const result = response.data;
 
             if (result.success !== true) {
                 throw new Error("Invalid logout response");
