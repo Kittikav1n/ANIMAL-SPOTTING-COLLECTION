@@ -37,6 +37,7 @@ import { Input } from "@/components/ui/input";
 import axiosInstance from "@/utils/axiosInstance";
 import AnimalIcon from "@/components/spotModal/AnimalIcon";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 
 interface AnimalItem {
   animalId: number;
@@ -86,6 +87,7 @@ export default function SpotModal({
   const [isLoadingAnimals, setIsLoadingAnimals] = useState(false);
   const [title, setTitle] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
 
   // เพิ่มสัตว์ลงในรายการที่เลือก
   const handleSelectAnimal = (animal: AnimalItem) => {
@@ -216,11 +218,19 @@ export default function SpotModal({
                 {/* Profile */}
                 <div className="flex items-center gap-3 bg-muted/60 p-3 rounded-xl border border-border w-full">
                   <div className="w-10 h-10 rounded-full bg-accent text-secondary flex items-center justify-center text-xs font-bold flex-shrink-0">
-                    A
+                    {user?.profileImage ? (
+                      <img
+                        src={user.profileImage}
+                        alt={user.username || "User profile"}
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      user?.username?.[0]?.toUpperCase() || "?"
+                    )}
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
                     <span className="text-sm font-semibold text-foreground truncate">
-                      Achirakorn Thawontantikun
+                      {user?.username}
                     </span>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
                       <span className="flex-shrink-0">Address:</span>

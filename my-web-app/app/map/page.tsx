@@ -113,9 +113,6 @@ export default function Home() {
       author: {
         name:
           raw.user?.username ||
-          raw.user?.name ||
-          raw.author?.name ||
-          raw.authorName ||
           "Spotter",
         avatar: raw.user?.avatar || raw.author?.avatar || "",
       },
@@ -154,12 +151,10 @@ export default function Home() {
         // 2. ดึงข้อมูล Spots ทั้งหมด (GET /api/spots)
         const spotRes = await axiosInstance.get("/api/spots");
         const rawSpots = spotRes.data?.data || spotRes.data || [];
-
         if (isMounted && Array.isArray(rawSpots) && rawSpots.length > 0) {
           const formattedSpots = rawSpots
             .map((raw: any) => mapRawSpotToPinData(raw, pinLookup))
             .filter((s) => !Number.isNaN(s.lat) && !Number.isNaN(s.lng));
-
           setSpots(formattedSpots);
           if (formattedSpots.length > 0) {
             setSelectedSpot(formattedSpots[0]);
@@ -376,7 +371,7 @@ export default function Home() {
         },
         animalPinMap,
       );
-
+      console.log("create spot ", createdSpot);
       setSpots((prev) => [{ ...createdSpot, pinName }, ...prev]);
       setSelectedSpot({ ...createdSpot, pinName });
       setShowSpotCard(true);
