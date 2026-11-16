@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 import axiosInstance from "@/utils/axiosInstance";
 import Link from "next/link";
@@ -29,14 +29,47 @@ export default function Register() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [avatar, setAvatar] = useState<string>();
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [readingPhoto, setReadingPhoto] = useState(false);
     const [message, setMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
+    async function changePhoto(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file || isSubmitting || readingPhoto) return;
+        setIsSuccess(false);
+        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size === 0 || file.size > 2 * 1024 * 1024) {
+            setMessage("Choose a PNG, JPEG or WebP image under 2 MB.");
+            return;
+        }
+
+        setReadingPhoto(true);
+        setMessage("");
+        try {
+            const preview = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Invalid image"));
+                reader.onerror = () => reject(new Error("Unable to read image"));
+                reader.readAsDataURL(file);
+            });
+            const image = new window.Image();
+            image.src = preview;
+            await image.decode();
+            setAvatar(preview);
+            setAvatarFile(file);
+        } catch {
+            setMessage("This photo could not be opened. Please choose another image.");
+        } finally {
+            setReadingPhoto(false);
+        }
+    }
+
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
-        if (isSubmitting) return;
+        if (isSubmitting || readingPhoto) return;
 
         setMessage("");
         setIsSuccess(false);
@@ -60,9 +93,20 @@ export default function Register() {
         setIsSubmitting(true);
 
         try {
+            let payload: FormData | { username: string; email: string; password: string } = { username, email, password };
+            if (avatarFile) {
+                payload = new FormData();
+                payload.append("username", username);
+                payload.append("email", email);
+                payload.append("password", password);
+                payload.append("profileImage", avatarFile);
+            }
+
             const response = await axiosInstance.post(
                 "/api/auth/register",
-                { username, email, password },
+                payload,
+                // ให้เบราว์เซอร์กำหนด multipart boundary แทน Content-Type JSON ของ instance
+                avatarFile ? { headers: { "Content-Type": undefined } } : undefined,
             );
 
             const result = response.data;
@@ -128,25 +172,14 @@ export default function Register() {
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp"
                                     className="sr-only"
-                                    onChange={(event) => {
-                                        const file = event.target.files?.[0];
-                                        if (!file) return;
-                                        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
-                                            setMessage("Choose a PNG, JPEG or WebP image under 5 MB.");
-                                            return;
-                                        }
-                                        const reader = new FileReader();
-                                        reader.onload = () => {
-                                            setAvatar(reader.result as string);
-                                            setMessage("");
-                                        };
-                                        reader.readAsDataURL(file);
-                                    }}
+                                    onChange={changePhoto}
+                                    disabled={isSubmitting || readingPhoto}
                                 />
                             </label>
                         </div>
 
-                        <form className="w-full" onSubmit={handleSubmit} onChange={() => setMessage("")}>
+                        <form className="w-full" onSubmit={handleSubmit} onChange={() => { setMessage(""); setIsSuccess(false); }} aria-busy={isSubmitting || readingPhoto}>
+                            <fieldset disabled={isSubmitting || readingPhoto} className="min-w-0 border-0 p-0">
                             <div className="flex flex-col gap-4 lg:gap-3">
                                 <div className="flex flex-col gap-1.5">
                                     <label htmlFor="username" className="text-xs font-medium">Username</label>
@@ -191,9 +224,10 @@ export default function Register() {
                                 </div>
                             </div>
 
-                            <Button type="submit" disabled={isSubmitting} className="mt-6 flex h-11 w-full rounded-md bg-[#526E4E] text-sm text-white hover:bg-[#42573F] lg:mt-4 lg:h-10">
-                                {isSubmitting ? "Creating account..." : "Create Account"}
+                            <Button type="submit" disabled={isSubmitting || readingPhoto || isSuccess} className="mt-6 flex h-11 w-full rounded-md bg-[#526E4E] text-sm text-white hover:bg-[#42573F] lg:mt-4 lg:h-10">
+                                {readingPhoto ? "Reading photo..." : isSubmitting ? "Creating account..." : "Create Account"}
                             </Button>
+                            </fieldset>
                             <p role="status" className={`mt-3 text-center text-xs lg:mt-1 ${isSuccess ? "text-[#526E4E]" : "text-[#AE3C32]"}`}>
                                 {message}
                             </p>
