@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { renderToString } from "react-dom/server";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -20,112 +19,29 @@ export interface SpotPinData {
   description: string;
   images: string[];
   category: string[];
+  pinName?: string; // รหัสไอคอนจาก Database เช่น "mdi:cat"
   lat: number;
   lng: number;
   address?: string;
   photoUrl?: string;
 }
 
-// Sample spots placed inside the allowed KMUTT campus zone:
-// Notice: spot-1, spot-2, and spot-3 are within ~40-60 meters of each other (Cluster 1)
-// spot-4 is >250m away near the greenhouse (Cluster 2)
-// spot-5 & spot-6 are Dogs within ~35m of each other (Cluster 3)
-export const SAMPLE_SPOTS: SpotPinData[] = [
-  {
-    id: "spot-1",
-    title: "Fruit-Loving Cat",
-    author: { name: "Kingkong1212", avatar: "🐱" },
-    description:
-      "A friendly local cat with a quirky habit of resting under apple trees. Known by students for enjoying small fruit treats near the campus walkway.",
-    images: [
-      "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=400&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400&h=400&fit=crop",
-    ],
-    category: ["cat"],
-    lat: 13.6512,
-    lng: 100.494,
-    address: "KMUTT Central Garden",
-    photoUrl:
-      "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=120&h=120&fit=crop",
-  },
-  {
-    id: "spot-2",
-    title: "Playful Kitten & Campus Dog",
-    author: { name: "Whiskers99", avatar: "🐾" },
-    description:
-      "Tiny orange kitten playing with leaves alongside the campus dog by the garden lawn.",
-    images: [
-      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop",
-    ],
-    category: ["cat", "dog"],
-    lat: 13.6514,
-    lng: 100.4943,
-    address: "Lawn near CB2",
-    photoUrl:
-      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=120&h=120&fit=crop",
-  },
-  {
-    id: "spot-3",
-    title: "Sunbathing Tabby & Birds",
-    author: { name: "CampusStray", avatar: "☀️" },
-    description:
-      "Warm tabby cat sleeping peacefully on the stone bench while pigeons gather nearby.",
-    images: [
-      "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=400&h=400&fit=crop",
-    ],
-    category: ["cat", "bird"],
-    lat: 13.651,
-    lng: 100.4944,
-    address: "Stone Bench Walkway",
-    photoUrl:
-      "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=120&h=120&fit=crop",
-  },
-  {
-    id: "spot-4",
-    title: "Garden Eagle / Falcon",
-    author: { name: "GreenPaw", avatar: "🌿" },
-    description:
-      "Majestic bird perched on the greenhouse roof observing the campus grounds.",
-    images: [
-      "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400&h=400&fit=crop",
-    ],
-    category: ["bird", "eagle"],
-    lat: 13.6535,
-    lng: 100.4925,
-    address: "Botany Greenhouse",
-    photoUrl:
-      "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=120&h=120&fit=crop",
-  },
-  {
-    id: "spot-5",
-    title: "Friendly Campus Dog",
-    author: { name: "DogLover01", avatar: "🐕" },
-    description:
-      "Loyal golden campus dog resting near the learning center hallway.",
-    images: [
-      "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&h=400&fit=crop",
-    ],
-    category: ["dog"],
-    lat: 13.6495,
-    lng: 100.4935,
-    address: "Learning Garden",
-    photoUrl:
-      "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=120&h=120&fit=crop",
-  },
-];
-
 interface MapComponentProps {
   spots?: SpotPinData[];
+  animalPinMap?: Record<string, string>; // Map ชื่อสัตว์ -> รหัส pinName จาก Database
   onRightClick: (lat: number, lng: number, address: string) => void;
   onSelectSpot?: (spot: SpotPinData) => void;
   onSelectCategory?: (category: string) => void;
   zoomTrigger?: { type: "in" | "out"; timestamp: number } | null;
+  flyToTarget?: {
+    lat: number;
+    lng: number;
+    name?: string;
+    timestamp: number;
+  } | null;
 }
 
-// 1. Polygon boundary coordinates
+// Polygon boundary coordinates (KMUTT Campus Zone)
 const customPolygonCoords: [number, number][] = [
   [13.65299, 100.495336],
   [13.652589, 100.495819],
@@ -160,14 +76,13 @@ const customPolygonCoords: [number, number][] = [
 
 const pinCenter: [number, number] = [13.651028246362888, 100.49416681954621];
 
-// 📏 Distance calculation formula (Haversine in meters)
 function getDistanceInMeters(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number,
+  lon2: number
 ): number {
-  const R = 6371e3; // Earth radius in meters
+  const R = 6371e3;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -183,28 +98,9 @@ function getDistanceInMeters(
 const CLUSTER_DISTANCE_METERS = 100;
 const ZOOM_BREAKOUT_THRESHOLD = 18;
 
-// Emoji mapping for each category matching the filter options
-export const CATEGORY_EMOJI_MAP: Record<string, string> = {
-  cat: "🐱",
-  dog: "🐶",
-  bird: "🐦",
-  eagle: "🦅",
-  salmon: "🐟",
-  frog: "🐸",
-  snake: "🐍",
-  butterfly: "🦋",
-  elephant: "🐘",
-  giraffe: "🦒",
-  dolphin: "🐬",
-};
-
-export function getCategoryEmoji(category: string): string {
-  return CATEGORY_EMOJI_MAP[category.toLowerCase()] || "🐾";
-}
-
-// Group spots by category, then cluster those within 100 meters
 interface SpotCluster {
   category: string;
+  pinName?: string;
   centerLat: number;
   centerLng: number;
   spots: SpotPinData[];
@@ -213,14 +109,22 @@ interface SpotCluster {
 function clusterSpotsByDistance(
   spots: SpotPinData[],
   radiusMeters: number,
+  animalPinMap?: Record<string, string>
 ): SpotCluster[] {
   const clusters: SpotCluster[] = [];
 
-  // Group by category (a spot with multiple categories can participate in corresponding clusters)
   const categoryMap: { [cat: string]: SpotPinData[] } = {};
   spots.forEach((spot) => {
-    if (!spot.category) return;
-    const cats = Array.isArray(spot.category) ? spot.category : [spot.category];
+    if (Number.isNaN(spot.lat) || Number.isNaN(spot.lng)) return;
+
+    // ถ้าไม่มี category หรือเป็นอาเรย์ว่าง [] ให้จัดเข้ากลุ่ม "general" เพื่อไม่ให้หมุดหายตอนซูมออก
+    const rawCats = Array.isArray(spot.category)
+      ? spot.category
+      : spot.category
+      ? [spot.category]
+      : [];
+    const cats = rawCats.length > 0 ? rawCats : ["general"];
+
     cats.forEach((cat) => {
       const normalized = cat.toLowerCase();
       if (!categoryMap[normalized]) categoryMap[normalized] = [];
@@ -228,14 +132,13 @@ function clusterSpotsByDistance(
     });
   });
 
-  // For each category, cluster items within radiusMeters
   Object.entries(categoryMap).forEach(([category, catSpots]) => {
     catSpots.forEach((spot) => {
       const matchingCluster = clusters.find(
         (c) =>
           c.category === category &&
           getDistanceInMeters(c.centerLat, c.centerLng, spot.lat, spot.lng) <=
-            radiusMeters,
+            radiusMeters
       );
 
       if (matchingCluster) {
@@ -251,6 +154,7 @@ function clusterSpotsByDistance(
       } else {
         clusters.push({
           category,
+          pinName: animalPinMap?.[category] || spot.pinName,
           centerLat: spot.lat,
           centerLng: spot.lng,
           spots: [spot],
@@ -265,7 +169,7 @@ function clusterSpotsByDistance(
 const isPointInPolygon = (
   lat: number,
   lng: number,
-  polygon: [number, number][],
+  polygon: [number, number][]
 ) => {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -281,40 +185,20 @@ const isPointInPolygon = (
   return inside;
 };
 
-// Cluster Pin Icon
-interface ClusterPinIconProps {
-  emoji: string;
-  count: number;
-}
-
-function ClusterPinIcon({ emoji, count }: ClusterPinIconProps) {
-  return (
-    <div className="relative size-11 rounded-full bg-[#E0ECDD] border-[1.5px] border-[#536E50]/40 shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105">
-      <span className="text-[22px] leading-none drop-shadow-xs select-none">
-        {emoji}
-      </span>
-      {count > 1 && (
-        <span className="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-[10px] font-bold size-[18px] rounded-full border-[1.5px] border-white flex items-center justify-center shadow-md select-none">
-          {count}
-        </span>
-      )}
-    </div>
-  );
-}
-
 export default function MapComponent({
-  spots = SAMPLE_SPOTS,
+  spots = [],
+  animalPinMap,
   onRightClick,
   onSelectSpot,
   onSelectCategory,
   zoomTrigger,
+  flyToTarget,
 }: MapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const spotsLayerRef = useRef<L.LayerGroup | null>(null);
 
-  // Keep references stable
   const onRightClickRef = useRef(onRightClick);
   onRightClickRef.current = onRightClick;
   const onSelectSpotRef = useRef(onSelectSpot);
@@ -323,11 +207,12 @@ export default function MapComponent({
   onSelectCategoryRef.current = onSelectCategory;
   const spotsRef = useRef(spots);
   spotsRef.current = spots;
+  const animalPinMapRef = useRef(animalPinMap);
+  animalPinMapRef.current = animalPinMap;
 
   const currentModeRef = useRef<"cluster" | "photo" | null>(null);
   const updateMarkersRef = useRef<((force?: boolean) => void) | null>(null);
 
-  // 🔄 Update markers function
   const updateMarkers = (force = false) => {
     if (!mapRef.current || !spotsLayerRef.current) return;
 
@@ -342,23 +227,30 @@ export default function MapComponent({
     const currentSpots = spotsRef.current;
 
     if (!isZoomedIn) {
-      // ZOOM OUT (< 18): Group nearby animals into Category Pins
       const clusters = clusterSpotsByDistance(
         currentSpots,
         CLUSTER_DISTANCE_METERS,
+        animalPinMapRef.current
       );
 
       clusters.forEach((cluster) => {
+        if (Number.isNaN(cluster.centerLat) || Number.isNaN(cluster.centerLng)) return;
+
         const count = cluster.spots.length;
+        const iconCode = cluster.pinName || "ph:question";
 
         const categoryIcon = L.divIcon({
           className: "category-cluster-pin",
-          html: renderToString(
-            <ClusterPinIcon
-              emoji={getCategoryEmoji(cluster.category)}
-              count={count}
-            />
-          ),
+          html: `
+            <div class="relative size-11 rounded-full bg-accent shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105 text-secondary">
+              <iconify-icon icon="${iconCode}" width="24" height="24"></iconify-icon>
+              ${
+                count > 1
+                  ? `<span class="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-[10px] font-bold size-[18px] rounded-full flex items-center justify-center shadow-md select-none">${count}</span>`
+                  : ""
+              }
+            </div>
+          `,
           iconSize: [44, 44],
           iconAnchor: [22, 22],
         });
@@ -380,20 +272,28 @@ export default function MapComponent({
         spotsLayerRef.current?.addLayer(marker);
       });
     } else {
-      // ZOOM IN (>= 18): Breakout photo pins
       currentSpots.forEach((spot) => {
-        const validPhotoUrl =
-          spot.photoUrl ||
-          spot.images?.[0] ||
-          "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=400&fit=crop";
+        if (Number.isNaN(spot.lat) || Number.isNaN(spot.lng)) return;
+
+        const validPhotoUrl = spot.photoUrl || spot.images?.[0] || "";
+        const fallbackPin =
+          animalPinMapRef.current?.[spot.category?.[0]?.toLowerCase() || ""] ||
+          spot.pinName;
+        const fallbackIconCode = fallbackPin || "ph:question";
 
         const photoPinIcon = L.divIcon({
           className: "photo-spot-pin",
-          html: `
-            <div style="width: 48px; height: 48px; border-radius: 12px; overflow: hidden; border: 2.5px solid white; box-shadow: 0 4px 14px rgba(0,0,0,0.35); cursor: pointer; background: white; transition: transform 0.2s;">
-              <img src="${validPhotoUrl}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
-            </div>
-          `,
+          html: validPhotoUrl
+            ? `
+              <div style="width: 48px; height: 48px; border-radius: 12px; overflow: hidden; border: 2.5px solid white; box-shadow: 0 4px 14px rgba(0,0,0,0.35); cursor: pointer; background: white; transition: transform 0.2s;">
+                <img src="${validPhotoUrl}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+              </div>
+            `
+            : `
+              <div class="size-11 rounded-full bg-accent shadow-md flex items-center justify-center cursor-pointer text-secondary">
+                <iconify-icon icon="${fallbackIconCode}" width="24" height="24"></iconify-icon>
+              </div>
+            `,
           iconSize: [48, 48],
           iconAnchor: [24, 24],
         });
@@ -412,16 +312,14 @@ export default function MapComponent({
   };
   updateMarkersRef.current = updateMarkers;
 
-  // Re-draw when filtered spots prop changes
   useEffect(() => {
     if (markerRef.current) {
       markerRef.current.remove();
       markerRef.current = null;
     }
     updateMarkersRef.current?.(true);
-  }, [spots]);
+  }, [spots, animalPinMap]);
 
-  // Handle zoom triggered from custom UI buttons
   useEffect(() => {
     if (!mapRef.current || !zoomTrigger) return;
     if (zoomTrigger.type === "in") {
@@ -430,6 +328,52 @@ export default function MapComponent({
       mapRef.current.zoomOut();
     }
   }, [zoomTrigger]);
+
+  // บินไปยังจุดที่กำหนดเมื่อ flyToTarget เปลี่ยน
+  // useEffect(() => {
+  //   if (!mapRef.current || !flyToTarget) return;
+
+  //   const { lat, lng, name } = flyToTarget;
+
+  //   mapRef.current.flyTo([lat, lng], 18, {
+  //     duration: 1.2,
+  //   });
+
+  //   if (markerRef.current) {
+  //     markerRef.current.setLatLng([lat, lng]);
+  //   } else {
+  //     markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+  //   }
+
+  //   if (name) {
+  //     markerRef.current.bindPopup(name).openPopup();
+  //   }
+  // }, [flyToTarget]);
+
+  useEffect(() => {
+    if (!mapRef.current || !flyToTarget) return;
+
+    const { lat, lng, name } = flyToTarget;
+
+    if (!isPointInPolygon(lat, lng, customPolygonCoords)) {
+      console.warn("Location is outside KMUTT campus polygon:", lat, lng);
+      return;
+    }
+
+    mapRef.current.flyTo([lat, lng], 18, {
+      duration: 1.2,
+    });
+
+    if (markerRef.current) {
+      markerRef.current.setLatLng([lat, lng]);
+    } else {
+      markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+    }
+
+    if (name) {
+      markerRef.current.bindPopup(name).openPopup();
+    }
+  }, [flyToTarget]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -472,7 +416,6 @@ export default function MapComponent({
     spotsLayerRef.current = spotsLayer;
     mapRef.current = map;
 
-    // Initial draw
     updateMarkers(true);
 
     const onZoomEnd = () => updateMarkers();
@@ -482,7 +425,6 @@ export default function MapComponent({
       map.invalidateSize();
     }, 150);
 
-    // double-click to add spot
     map.on("dblclick", async (e) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
@@ -513,7 +455,7 @@ export default function MapComponent({
 
   const getAddressFromLatLon = async (
     lat: number,
-    lon: number,
+    lon: number
   ): Promise<string> => {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
     try {

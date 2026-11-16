@@ -18,7 +18,6 @@ export default function SpotPhotoViewerModal({
 }: SpotPhotoViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-  // Sync currentIndex whenever modal opens or initialIndex changes
   useEffect(() => {
     if (isOpen) {
       setCurrentIndex(initialIndex);
@@ -38,7 +37,7 @@ export default function SpotPhotoViewerModal({
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between p-4 animate-in fade-in duration-200">
       {/* Top Header: Back Button */}
-      <div className="flex items-center justify-between z-10">
+      <div className="flex items-center justify-between z-10 shrink-0">
         <button
           type="button"
           onClick={onClose}
@@ -47,17 +46,17 @@ export default function SpotPhotoViewerModal({
         >
           <ArrowLeft className="size-5" />
         </button>
-        <span className="text-white/70 text-xs font-medium">
+        <span className="text-white/70 text-xs font-medium px-2.5 py-1 rounded-full bg-white/10">
           {currentIndex + 1} / {images.length}
         </span>
       </div>
 
       {/* Main Photo Center */}
-      <div className="relative flex-1 flex items-center justify-center overflow-hidden my-4">
+      <div className="relative flex-1 min-h-0 min-w-0 w-full flex items-center justify-center overflow-hidden my-3">
         <img
           src={images[currentIndex]}
           alt={`Photo ${currentIndex + 1}`}
-          className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl"
+          className="max-h-full max-w-full w-auto h-auto object-contain rounded-2xl shadow-lg select-none"
         />
 
         {/* Previous / Next arrows if multiple images */}
@@ -66,14 +65,14 @@ export default function SpotPhotoViewerModal({
             <button
               type="button"
               onClick={handlePrev}
-              className="absolute left-2 size-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors"
+              className="absolute left-2 size-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors cursor-pointer"
             >
               <ChevronLeft className="size-5" />
             </button>
             <button
               type="button"
               onClick={handleNext}
-              className="absolute right-2 size-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors"
+              className="absolute right-2 size-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors cursor-pointer"
             >
               <ChevronRight className="size-5" />
             </button>
@@ -82,19 +81,23 @@ export default function SpotPhotoViewerModal({
       </div>
 
       {/* Bottom Pagination Dots */}
-      <div className="flex items-center justify-center gap-2 pb-6 z-10">
-        {images.map((_, idx) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={() => setCurrentIndex(idx)}
-            className={`h-2 rounded-full transition-all cursor-pointer ${
-              idx === currentIndex ? "w-6 bg-white" : "w-2 bg-white/40"
-            }`}
-            aria-label={`Go to slide ${idx + 1}`}
-          />
-        ))}
-      </div>
+      {images.length > 1 ? (
+        <div className="flex items-center justify-center gap-2 pb-4 z-10 shrink-0">
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setCurrentIndex(idx)}
+              className={`h-2 rounded-full transition-all cursor-pointer ${
+                idx === currentIndex ? "w-6 bg-white" : "w-2 bg-white/40"
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="h-4 shrink-0" />
+      )}
     </div>
   );
 }

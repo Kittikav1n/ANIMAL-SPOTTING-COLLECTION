@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -35,8 +35,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import axiosInstance from "@/utils/axiosInstance";
-import { useEffect } from "react";
 import AnimalIcon from "@/components/spotModal/AnimalIcon";
+import { toast } from "sonner";
 
 interface AnimalItem {
   animalId: number;
@@ -54,7 +54,16 @@ interface SpotModalProps {
     lng: number;
     address: string;
   } | null;
-  onSaveSpot: () => void;
+  onSaveSpot: (data: {
+    lat: number;
+    lng: number;
+    address: string;
+    title: string;
+    description: string;
+    date: Date;
+    animals: AnimalItem[];
+    images: File[];
+  }) => Promise<void> | void;
 }
 
 export default function SpotModal({
@@ -75,8 +84,8 @@ export default function SpotModal({
   const [isEditingImages, setIsEditingImages] = useState(false);
   const [animalsList, setAnimalsList] = useState<AnimalItem[]>([]);
   const [isLoadingAnimals, setIsLoadingAnimals] = useState(false);
-  const [isLoadingSaveSpot, setIsLoadingSaveSpots] = useState(false);
   const [title, setTitle] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // เพิ่มสัตว์ลงในรายการที่เลือก
   const handleSelectAnimal = (animal: AnimalItem) => {
@@ -98,61 +107,44 @@ export default function SpotModal({
       ) && animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  //save spot จาก form infomation
+  // save spot จาก form information
   const handleSave = async () => {
     if (!spotData) {
-      alert("ไม่พบข้อมูลพิกัดตำแหน่งบนแผนที่");
+      toast.error("Location coordinates not found on the map.");
+      return;
+    }
+    if (selectedAnimals.length === 0) {
+      toast.warning("Please select at least one animal species.");
       return;
     }
 
+    if (selectedImages.length === 0) {
+      toast.warning("Please upload at least one photo.");
+      return;
+    }
     try {
-      setIsLoadingSaveSpots(true);
-      const uploadedPhotoUrls: string[] = [];
-
-      for (const file of selectedImages) {
-        const presignedRes = await axiosInstance.post("/api/spots/presigned-url", {
-          fileName: file.name,
-          fileType: file.type,
-        });
-
-        if (presignedRes.data.success) {
-          const { uploadUrl, publicUrl } = presignedRes.data.data;
-          await axiosInstance.put(uploadUrl, file, {
-            headers: {
-              "Content-Type": file.type,
-            },
-          });
-          uploadedPhotoUrls.push(publicUrl);
-        }
-      }
-
-      const saveResponse = await axiosInstance.post("/api/spots", {
-        title: title && title.trim() !== '' ? title : 'New Animal Spot',
-        description: description,
-        address: spotData.address,
+      setIsSubmitting(true);
+      await onSaveSpot({
         lat: spotData.lat,
         lng: spotData.lng,
-        photoUrls: uploadedPhotoUrls,
+        address: spotData.address,
+        title: title.trim(),
+        description: description,
+        date: selectedDate || new Date(),
         animals: selectedAnimals,
-        date: selectedDate,
+        images: selectedImages,
       });
 
-      onSaveSpot();
-
-      if (saveResponse.data.success) {
-        alert("Spot already saved");
-
-        setDescription("");
-        setTitle("");
-        setSelectedAnimals([]);
-        setSelectedImages([]);
-        onClose(false);
-      }
+      // เคลียร์ค่าเมื่อบันทึกสำเร็จเท่านั้น
+      setTitle("");
+      setDescription("");
+      setSelectedAnimals([]);
+      setSelectedImages([]);
+      onClose(false);
     } catch (error) {
-      console.error("Error uploading spot with presigned url:", error);
-      alert("Occur error cannot add spot");
+      // Error ถูกจัดการและแจ้งเตือนในหน้าหลักแล้ว Modal จะไม่ปิดเพื่อให้ผู้ใช้กดลองใหม่ได้
     } finally {
-      setIsLoadingSaveSpots(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -169,14 +161,13 @@ export default function SpotModal({
     onClose(open);
   };
 
-  // ดึงข้อมูลสัตว์จากฐานข้อมูลเมื่อเปิด Modal โดยใช้ axios + async/await
+  // ดึงข้อมูลสัตว์จากฐานข้อมูลเมื่อเปิด Modal
   useEffect(() => {
     const fetchAnimals = async () => {
       if (!isOpen) return;
       setIsLoadingAnimals(true);
       try {
         const response = await axiosInstance.get("/api/animals");
-        console.log(response);
         if (response.data.success) {
           setAnimalsList(response.data.data);
         }
@@ -193,9 +184,8 @@ export default function SpotModal({
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
-        // mobile: inset full เต็มจอ  |  Desktop Modal fixed ความกว้างในกล่อง modal ให้ element มันขยายเต็ม สูงตาม content
         className={`
-            flex flex-col bg-white shadow-2xl overflow-hidden outline-none duration-100
+            flex flex-col bg-card shadow-2xl overflow-hidden outline-none duration-100
             fixed inset-0 h-[100dvh] w-full max-w-none rounded-none p-4 translate-x-0 translate-y-0
             md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
             md:h-auto md:max-h-[120dvh] md:max-w-[700px] md:rounded-2xl md:p-6
@@ -203,18 +193,18 @@ export default function SpotModal({
         showCloseButton={view !== "select-animal"}
       >
         {/* Header หน้า Add spot กับ Add animal species */}
-        <DialogHeader className="pb-3 border-b relative flex flex-row items-center justify-center min-h-[40px]">
+        <DialogHeader className="pb-3 border-b border-border relative flex flex-row items-center justify-center min-h-[40px]">
           {view === "select-animal" && (
             <button
               type="button"
               onClick={() => setView("main")}
-              className="absolute left-0 p-1 hover:bg-slate-100 rounded-full transition text-slate-600"
+              className="absolute left-0 p-1 hover:bg-muted rounded-full transition text-muted-foreground hover:text-foreground cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
 
-          <DialogTitle className="text-lg font-bold text-center text-slate-800">
+          <DialogTitle className="text-lg font-bold text-center text-foreground">
             {view === "main" ? "Add New Spot" : "Add Animal Species"}
           </DialogTitle>
         </DialogHeader>
@@ -222,54 +212,54 @@ export default function SpotModal({
         {view === "main" && (
           <>
             {spotData && (
-              //   Profile
               <div className="flex flex-1 min-h-0 flex-col md:max-h-[70vh] overflow-y-auto gap-4 pb-8 md:pb-1 mt-2 w-full pl-1 pr-2 custom-scrollbar">
-                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border w-full">
-                  <div className="w-10 h-10 rounded-full bg-orange-200 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                {/* Profile */}
+                <div className="flex items-center gap-3 bg-muted/60 p-3 rounded-xl border border-border w-full">
+                  <div className="w-10 h-10 rounded-full bg-accent text-secondary flex items-center justify-center text-xs font-bold flex-shrink-0">
                     A
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-slate-900 truncate">
+                    <span className="text-sm font-semibold text-foreground truncate">
                       Achirakorn Thawontantikun
                     </span>
-                    <div className="flex items-center gap-1 text-xs text-slate-500 min-w-0">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
                       <span className="flex-shrink-0">Address:</span>
                       <span className="truncate">{spotData.address}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Display Selected Animals Badges */}
+                {/* Display Selected Animals Badges (ใช้สีเขียวเทา bg-accent text-accent-foreground) */}
                 {selectedAnimals.length > 0 && (
-                  <div className="flex flex-wrap gap-2 p-2 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded-lg border border-dashed border-border">
                     {selectedAnimals.map((animal) => (
                       <span
                         key={animal.animalId}
-                        className="text-xs bg-amber-900 text-white px-2.5 py-1 rounded-full flex items-center gap-1.5 font-medium"
+                        className="text-xs bg-accent text-accent-foreground border border-secondary/20 px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium"
                       >
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                          <AnimalIcon
-                            pinName={animal.animalImagePin}
-                            className="w-4 h-4 text-slate-700"
-                          />
-                        </div>
+                        <AnimalIcon
+                          pinName={animal.animalImagePin}
+                          className="w-4 h-4 text-secondary"
+                        />
                         {animal.name}
                       </span>
                     ))}
                   </div>
                 )}
+
                 {/* Title input */}
                 <div className="w-full">
                   <Input
                     placeholder="Enter spot title (e.g., Friendly cat near garden)"
-                    className="w-full rounded-xl border-slate-200 bg-white text-sm h-11 focus-visible:ring-emerald-700"
+                    className="w-full rounded-xl border-border bg-card text-sm h-11 focus-visible:ring-secondary"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
+                    disabled={isSubmitting}
                   />
                 </div>
 
                 {/* Spot Description */}
-                <div className="w-full min-h-[250px] md:min-h-full rounded-xl border border-slate-200 p-3 overflow-y-auto custom-scrollbar bg-white focus-within:ring-2 focus-within:ring-emerald-700 flex flex-col">
+                <div className="w-full min-h-[250px] md:min-h-full rounded-xl border border-border p-3 overflow-y-auto custom-scrollbar bg-card focus-within:ring-2 focus-within:ring-secondary flex flex-col">
                   <Textarea
                     placeholder="Describe or share something about your experience"
                     className="w-full flex-1 resize-none border-0 bg-transparent p-1 focus-visible:ring-0 shadow-none focus-visible:outline-none custom-scrollbar"
@@ -277,27 +267,24 @@ export default function SpotModal({
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
-                {/* Immage Selected */}
+
+                {/* Image Selected */}
                 {selectedImages.length > 0 && (
                   <div className="flex flex-col gap-2 w-full">
-                    {/* ปุ่ม Edit All (แสดงเฉพาะหน้าจอ Desktop หรือ Tablet แนวนอนขึ้นไป) */}
                     <div className="hidden md:flex items-center justify-between">
-                      <span className="text-xs font-medium text-slate-500">
+                      <span className="text-xs font-medium text-muted-foreground">
                         Photos ({selectedImages.length})
                       </span>
                       <button
                         type="button"
                         onClick={() => setIsEditingImages(true)}
-                        className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition cursor-pointer border border-slate-200"
+                        className="flex items-center gap-1.5 px-3 py-1 bg-muted hover:bg-muted/80 text-foreground text-xs font-medium rounded-lg transition cursor-pointer border border-border"
                       >
-                        <span className="text-xs">
-                          <Edit className="w-4 h-4 text-emerald-700"></Edit>
-                        </span>{" "}
+                        <Edit className="w-4 h-4 text-secondary" />
                         Edit All
                       </button>
                     </div>
 
-                    {/* สำหรับแสดงรูปภาพ (จำกัดโชว์สูงสุด 5 รูป) */}
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 w-full">
                       {selectedImages.slice(0, 5).map((file, index) => {
                         const isLastVisible = index === 4;
@@ -309,7 +296,7 @@ export default function SpotModal({
                             onClick={() => {
                               setIsEditingImages(true);
                             }}
-                            className={`relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer group ${
+                            className={`relative rounded-xl overflow-hidden border border-border bg-muted cursor-pointer group ${
                               index === 0
                                 ? "col-span-2 md:col-span-1 h-36 md:h-28"
                                 : "h-28 md:h-28"
@@ -349,37 +336,34 @@ export default function SpotModal({
             )}
 
             {/* Tool Submit btn */}
-            <div className="flex flex-shirk-0 items-end justify-between pt-2 border-t">
-              <div className="flex items-center gap-3 md:gap-6 text-slate-600">
+            <div className="flex flex-shrink-0 items-end justify-between pt-2 border-t border-border">
+              <div className="flex items-center gap-3 md:gap-6 text-muted-foreground">
                 {/* Image Dropdown -> Camera, Gallery */}
                 <DropdownMenu>
                   <DropdownMenuTrigger>
-                    <ImageIcon className="hover:text-emerald-700 cursor-pointer w-5 h-5" />
+                    <ImageIcon className="hover:text-secondary cursor-pointer w-5 h-5" />
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent
                     align="start"
-                    className="rounded-xl shadow-lg border-slate-100 p-2 bg-white"
+                    className="rounded-xl shadow-lg border-border p-2 bg-popover"
                   >
-                    {/* Camera */}
                     <DropdownMenuItem
                       onClick={() =>
                         document.getElementById("camera-input")?.click()
                       }
-                      className="cursor-pointer gap-2 rounded-lg py-2 text-slate-700 hover:text-emerald-800 hover:bg-slate-50"
+                      className="cursor-pointer gap-2 rounded-lg py-2 text-foreground hover:text-secondary hover:bg-muted"
                     >
-                      <Camera className="w-4 h-4 text-emerald-700" /> Take a
-                      Photo
+                      <Camera className="w-4 h-4 text-secondary" /> Take a Photo
                     </DropdownMenuItem>
 
-                    {/* Gallery */}
                     <DropdownMenuItem
                       onClick={() =>
                         document.getElementById("gallery-input")?.click()
                       }
-                      className="cursor-pointer gap-2 rounded-lg py-2 text-slate-700 hover:text-emerald-800 hover:bg-slate-50"
+                      className="cursor-pointer gap-2 rounded-lg py-2 text-foreground hover:text-secondary hover:bg-muted"
                     >
-                      <FolderOpen className="w-4 h-4 text-emerald-700" /> Choose
+                      <FolderOpen className="w-4 h-4 text-secondary" /> Choose
                       from Gallery
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -389,7 +373,7 @@ export default function SpotModal({
                 <button
                   type="button"
                   onClick={() => setView("select-animal")}
-                  className="hover:text-emerald-700 transition flex items-center gap-1 text-[10px] md:text-xs font-medium cursor-pointer"
+                  className="hover:text-secondary transition flex items-center gap-1 text-[10px] md:text-xs font-medium cursor-pointer"
                 >
                   <Users className="w-5 h-5" />
                   {selectedAnimals.length > 0
@@ -400,8 +384,8 @@ export default function SpotModal({
                 {/* Calendar part */}
                 <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                   <PopoverTrigger>
-                    <div className="flex items-center gap-1.5 text-[10px] md:text-xs font-medium text-slate-600 hover:text-emerald-700 transition cursor-pointer bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
-                      <CalendarIcon className="w-4 h-4 hover:text-emerald-700" />
+                    <div className="flex items-center gap-1.5 text-[10px] md:text-xs font-medium text-muted-foreground hover:text-secondary transition cursor-pointer bg-muted/60 hover:bg-muted px-3 py-1.5 rounded-full border border-border">
+                      <CalendarIcon className="w-4 h-4" />
                       <span>
                         {selectedDate
                           ? selectedDate.toLocaleDateString("en-US", {
@@ -416,7 +400,7 @@ export default function SpotModal({
 
                   <PopoverContent
                     align="start"
-                    className="w-auto p-0 rounded-2xl shadow-xl border-slate-200"
+                    className="w-auto p-0 rounded-2xl shadow-xl border-border"
                   >
                     <Card size="sm" className="w-fit border-0 shadow-none">
                       <CardContent className="p-3">
@@ -438,54 +422,52 @@ export default function SpotModal({
               {/* Save Btn */}
               <Button
                 onClick={handleSave}
-                disabled={isLoadingSaveSpot}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 rounded-xl font-medium"
+                disabled={isSubmitting}
+                className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-6 h-9 rounded-xl font-medium cursor-pointer"
               >
-                Continue
+                {isSubmitting ? "Saving..." : "Continue"}
               </Button>
             </div>
           </>
         )}
+
         {/* หน้าต่างย่อย Edit Image เปิดเมื่อกด Edit All */}
         {isEditingImages && (
-          <div className="absolute inset-0 bg-white z-50 flex flex-col p-4 md:p-6 animate-in fade-in zoom-in-95 duration-150">
-            {/* Header ของหน้า Edit */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="absolute inset-0 bg-card z-50 flex flex-col p-4 md:p-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
               <button
                 type="button"
                 onClick={() => setIsEditingImages(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-full transition text-slate-700 cursor-pointer flex items-center gap-1"
+                className="p-1.5 hover:bg-muted rounded-full transition text-foreground cursor-pointer flex items-center gap-1"
               >
                 <ArrowLeft className="w-5 h-5" />
                 <span className="text-xs font-medium hidden md:inline">
                   Back
                 </span>
               </button>
-              <h3 className="text-base font-bold text-slate-800">
+              <h3 className="text-base font-bold text-foreground">
                 Edit Image/Video
               </h3>
               <Button
                 type="button"
                 onClick={() => setIsEditingImages(false)}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white px-4 py-1.5 h-8 rounded-lg text-xs font-medium"
+                className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-4 py-1.5 h-8 rounded-lg text-xs font-medium cursor-pointer"
               >
                 Accept
               </Button>
             </div>
 
-            {/* รายการรูปภาพทั้งหมดในโหมดแก้ไข */}
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               {selectedImages.map((file, index) => (
                 <div
                   key={index}
-                  className="relative w-full h-56 md:h-48 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm group"
+                  className="relative w-full h-56 md:h-48 rounded-2xl overflow-hidden border border-border bg-muted shadow-sm group"
                 >
                   <img
                     src={URL.createObjectURL(file)}
                     alt={`edit-preview-${index}`}
                     className="w-full h-full object-cover"
                   />
-                  {/* ปุ่มกากบาทลบรูป */}
                   <button
                     type="button"
                     onClick={() => {
@@ -496,7 +478,7 @@ export default function SpotModal({
                         setIsEditingImages(false);
                       }
                     }}
-                    className="absolute top-3 right-3 bg-black/70 hover:bg-red-600 text-white rounded-full p-1.5 transition shadow-lg cursor-pointer"
+                    className="absolute top-3 right-3 bg-black/70 hover:bg-destructive text-white rounded-full p-1.5 transition shadow-lg cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -510,31 +492,29 @@ export default function SpotModal({
           <div className="flex flex-col gap-4 pt-2 flex-1 min-h-0">
             {/* Animal Selected Box */}
             <div className="flex flex-col gap-1.5 shrink-0">
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-muted-foreground font-medium">
                 Animal Selected
               </span>
-              <div className="min-h-[46px] max-h-[85px] overflow-y-auto p-2 rounded-xl border border-slate-200 flex flex-wrap gap-1.5 items-center bg-slate-50/50 custom-scrollbar">
+              <div className="min-h-[46px] max-h-[85px] overflow-y-auto p-2 rounded-xl border border-border flex flex-wrap gap-1.5 items-center bg-muted/40 custom-scrollbar">
                 {selectedAnimals.length === 0 ? (
-                  <span className="text-xs text-slate-400 pl-1">
+                  <span className="text-xs text-muted-foreground pl-1">
                     No animal selected
                   </span>
                 ) : (
                   selectedAnimals.map((animal) => (
                     <div
                       key={animal.animalId}
-                      className="flex items-center gap-1.5 bg-[#5c2a18] text-white text-xs font-medium px-2.5 py-1 rounded-full shadow-sm animate-in fade-in zoom-in duration-150"
+                      className="flex items-center gap-1.5 bg-accent text-accent-foreground text-xs font-medium px-3 py-1.5 rounded-full animate-in fade-in zoom-in duration-150"
                     >
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                        <AnimalIcon
-                          pinName={animal.animalImagePin}
-                          className="w-4 h-4 text-slate-700"
-                        />
-                      </div>
+                      <AnimalIcon
+                        pinName={animal.animalImagePin}
+                        className="w-4 h-4 text-secondary"
+                      />
                       <span>{animal.name}</span>
                       <button
                         type="button"
                         onClick={() => handleRemoveAnimal(animal.animalId)}
-                        className="hover:bg-white/20 rounded-full p-0.5 transition cursor-pointer"
+                        className="hover:bg-secondary/15 rounded-full p-0.5 transition cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -546,19 +526,19 @@ export default function SpotModal({
 
             {/* Search */}
             <div className="relative shrink-0">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Ex. Dog, Cat"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 rounded-full bg-white border-slate-200 text-xs h-9 focus-visible:ring-emerald-700"
+                className="pl-9 rounded-full bg-card border-border text-xs h-9 focus-visible:ring-secondary"
               />
             </div>
 
             {/* Animal List */}
-            <div className="flex-1 min-h-0 md:max-h-[260px] overflow-y-auto custom-scrollbar divide-slate-100 border-t border-b">
+            <div className="flex-1 min-h-0 md:max-h-[260px] overflow-y-auto custom-scrollbar divide-border border-t border-b border-border">
               {availableAnimals.length === 0 ? (
-                <div className="py-8 text-center text-xs text-slate-400">
+                <div className="py-8 text-center text-xs text-muted-foreground">
                   No options found
                 </div>
               ) : (
@@ -566,24 +546,22 @@ export default function SpotModal({
                   <div
                     key={animal.animalId}
                     onClick={() => handleSelectAnimal(animal)}
-                    className="flex items-center justify-between p-2.5 hover:bg-slate-50 cursor-pointer transition rounded-lg"
+                    className="flex items-center justify-between p-2.5 hover:bg-muted/60 cursor-pointer transition rounded-lg"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-sm">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                          <AnimalIcon
-                            pinName={animal.animalImagePin}
-                            className="w-4 h-4 text-slate-700"
-                          />
-                        </div>
+                      <div className="w-8 h-8 rounded-full bg-accent text-secondary flex items-center justify-center shrink-0">
+                        <AnimalIcon
+                          pinName={animal.animalImagePin}
+                          className="w-4 h-4 text-current"
+                        />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-800">
+                        <span className="text-xs font-bold text-foreground">
                           {animal.name}
                         </span>
                       </div>
                     </div>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-muted-foreground">
                       {animal.spotsCount} Spots
                     </span>
                   </div>
@@ -596,7 +574,7 @@ export default function SpotModal({
               <Button
                 type="button"
                 onClick={() => setView("main")}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white px-6 rounded-xl font-medium text-xs h-9"
+                className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-6 rounded-xl font-medium text-md h-9 cursor-pointer"
               >
                 Confirm
               </Button>
@@ -604,7 +582,7 @@ export default function SpotModal({
           </div>
         )}
 
-        {/* twotyoe input for upload imagge -> gallery(enviroment), camera */}
+        {/* Two types input for upload image -> gallery(environment), camera */}
         <input
           id="camera-input"
           type="file"

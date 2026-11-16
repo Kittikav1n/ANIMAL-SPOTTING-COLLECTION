@@ -2,11 +2,10 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Plus, BookOpen, User } from "lucide-react"
+import { Compass, BookOpen, User } from "lucide-react"
 
 const navItems = [
   { label: "Map", href: "/map", icon: Compass },
-  { label: "Add spot", href: "/add-spot", icon: Plus, mobileOnly: true },
   { label: "Collection", href: "/collection", icon: BookOpen },
   { label: "Profile", href: "/profile", icon: User },
 ]
@@ -18,27 +17,25 @@ export function Navigation() {
     <>
       <aside className="fixed left-0 top-0 hidden h-screen w-20 flex-col items-center gap-8 bg-card py-8 sm:flex z-50">
         <div className="flex flex-col items-center gap-6">
-          {navItems
-            .filter((item) => !item.mobileOnly)
-            .map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href || (item.href === "/map" && pathname === "/")
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href || (item.href === "/map" && pathname === "/")
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex flex-col items-center gap-1.5 transition-colors ${
-                    isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <div className={`p-2.5 rounded-full transition-all ${isActive ? "bg-accent text-secondary" : ""}`}>
-                    <Icon className="size-6 stroke-[2]" />
-                  </div>
-                  <span className="text-xs">{item.label}</span>
-                </Link>
-              )
-            })}
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center gap-1.5 transition-colors ${
+                  isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <div className={`p-2.5 rounded-full transition-all ${isActive ? "bg-accent text-secondary" : ""}`}>
+                  <Icon className="size-6 stroke-[2]" />
+                </div>
+                <span className="text-xs">{item.label}</span>
+              </Link>
+            )
+          })}
         </div>
       </aside>
 

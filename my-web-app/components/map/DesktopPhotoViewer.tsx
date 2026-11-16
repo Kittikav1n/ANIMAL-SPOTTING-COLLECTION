@@ -46,9 +46,9 @@ export default function DesktopPhotoViewer({
   };
 
   return (
-    <div className="hidden md:flex w-full h-full bg-neutral-900/90 backdrop-blur-xl text-white rounded-3xl shadow-2xl overflow-hidden relative flex-col justify-between p-5 animate-in fade-in zoom-in-95 duration-200 border border-white/10">
+    <div className="hidden md:flex w-[1055px] h-[640px] max-w-[calc(100vw-420px)] max-h-[calc(100vh-110px)] bg-neutral-900/90 backdrop-blur-xl text-white rounded-3xl shadow-2xl overflow-hidden relative flex-col justify-between p-5 animate-in fade-in zoom-in-95 duration-200 border border-white/10">
       {/* Top Header: Badge indicator + Close Button 'X' */}
-      <div className="flex items-center justify-between z-20">
+      <div className="flex items-center justify-between z-20 shrink-0">
         <span className="text-xs text-white/70 font-medium px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-sm">
           {currentIndex + 1} of {images.length}
         </span>
@@ -63,11 +63,11 @@ export default function DesktopPhotoViewer({
       </div>
 
       {/* Main Image Stage - Balanced and Framed with Subtle Shadow */}
-      <div className="relative flex-1 w-full flex items-center justify-center overflow-hidden my-2">
+      <div className="relative flex-1 min-h-0 min-w-0 w-full flex items-center justify-center overflow-hidden my-2">
         <img
           src={images[currentIndex] || images[0]}
           alt={`Photo ${currentIndex + 1}`}
-          className="w-full h-full object-contain rounded-2xl shadow-xl select-none"
+          className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl shadow-xl select-none"
         />
 
         {/* Left Arrow */}
@@ -97,7 +97,7 @@ export default function DesktopPhotoViewer({
 
       {/* Bottom Pagination Dots */}
       {images.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5 pt-1 z-20">
+        <div className="flex items-center justify-center gap-1.5 pt-1 z-20 shrink-0">
           {images.map((_, idx) => (
             <button
               key={idx}
