@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/ui/createOC/navigation";
+import { Toaster } from "@/components/ui/sonner";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -24,6 +25,7 @@ export default function RootLayout({
         <Navigation />
         <div className="flex-1 flex flex-col h-full sm:pl-20">
           {children}
+          <Toaster richColors position="top-center" />
         </div>
         <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js" async />
       </body>

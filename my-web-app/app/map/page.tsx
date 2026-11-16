@@ -19,6 +19,8 @@ import DesktopPhotoViewer from "@/components/map/DesktopPhotoViewer";
 import MapFloatingControls from "@/components/map/MapFloatingControls";
 import { SpotPinData } from "@/components/MapComponent";
 import MapHintBanner from "@/components/spotModal/MapHintBanner";
+import { isAxiosError } from "axios";
+import { toast } from "sonner";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ssr: false,
@@ -68,24 +70,22 @@ export default function Home() {
   } | null>(null);
 
   const [backendAnimals, setBackendAnimals] = useState<ExtendedAnimalOption[]>(
-    []
+    [],
   );
   const [isSyncing, setIsSyncing] = useState(false);
 
   // แปลงข้อมูลดิบจาก Backend ให้ตรงกับ SpotPinData
   const mapRawSpotToPinData = (
     raw: any,
-    pinLookup: Record<string, string>
+    pinLookup: Record<string, string>,
   ): SpotPinData => {
     const lat = Number(raw.lat ?? raw.latitude ?? raw.spotLat);
     const lng = Number(raw.lng ?? raw.lon ?? raw.longitude ?? raw.spotLng);
 
     const categories = Array.isArray(raw.animals)
       ? raw.animals.map((a: any) =>
-          (typeof a === "string" ? a : a.name || "animal").toLowerCase()
+          (typeof a === "string" ? a : a.name || "animal").toLowerCase(),
         )
-      : Array.isArray(raw.category)
-      ? raw.category.map((c: string) => c.toLowerCase())
       : ["general"];
 
     const firstPin =
@@ -97,14 +97,6 @@ export default function Home() {
       ? raw.photos
           .map((p: any) => (typeof p === "string" ? p : p.photoUrl || p.url))
           .filter(Boolean)
-      : Array.isArray(raw.images)
-      ? raw.images
-          .map((img: any) =>
-            typeof img === "string" ? img : img.photoUrl || img.url
-          )
-          .filter(Boolean)
-      : raw.photoUrl
-      ? [raw.photoUrl]
       : [];
 
     return {
@@ -146,9 +138,10 @@ export default function Home() {
             id: item.name.toLowerCase().trim(),
             name: item.name.toUpperCase(),
             pinName: item.animalImagePin || "ph:question",
-          })
+          }),
         );
 
+        //dictionary for pin
         const pinLookup: Record<string, string> = {};
         formattedAnimals.forEach((a) => {
           pinLookup[a.id] = a.pinName || "ph:question";
@@ -190,11 +183,11 @@ export default function Home() {
   // รายการหมวดหมู่สัตว์ดึงจาก Backend เท่านั้น
   const dynamicFilterChips: AnimalChipItem[] = useMemo(() => {
     const topAnimals: AnimalChipItem[] = backendAnimals
-      .slice(3, 8) // ตำแหน่ง 3-7 ของอาเรย์ (5 ตัว) เป็นสัตว์ยอดนิยม
+      .slice(0, 5) // ยอดนิยม order มาให้จาก bn เเล้ว
       .map((a: any) => ({
         id: a.name,
         label: a.name.toUpperCase(),
-        pinName: a.pinName || a.icon || a.avatar,
+        pinName: a.pinName,
       }));
     return [{ id: "ALL", label: "ALL" }, ...topAnimals];
   }, [backendAnimals]);
@@ -204,7 +197,7 @@ export default function Home() {
     const map: Record<string, string> = {};
     backendAnimals.forEach((a: any) => {
       const key = (a.name || a.id || "").toLowerCase();
-      const pin = a.pinName || a.icon || a.avatar;
+      const pin = a.pinName;
       if (key && pin) {
         map[key] = pin;
       }
@@ -222,7 +215,7 @@ export default function Home() {
         // 1. Drawer Multi-select Filter
         if (selectedCategories.length > 0) {
           const matchesDrawer = selectedCategories.some((sel) =>
-            spotCats.includes(sel.toLowerCase())
+            spotCats.includes(sel.toLowerCase()),
           );
           if (!matchesDrawer) return false;
         }
@@ -282,7 +275,7 @@ export default function Home() {
   const handleSelectSpot = (spot: SpotPinData) => {
     setSelectedSpot(spot);
     setSelectedCategory(
-      Array.isArray(spot.category) ? spot.category[0] : spot.category
+      Array.isArray(spot.category) ? spot.category[0] : spot.category,
     );
     setShowSpotCard(true);
   };
@@ -307,12 +300,15 @@ export default function Home() {
     lat: number;
     lng: number;
     address: string;
+    title: string;
     description: string;
+    date: Date;
     animals: any[];
     images: File[];
   }) => {
-    const title =
-      newSpotData.animals.length > 0
+    const finalTitle = newSpotData.title
+      ? newSpotData.title
+      : newSpotData.animals.length > 0
         ? `${newSpotData.animals[0].name} Spot`
         : "New Animal Spot";
 
@@ -327,10 +323,13 @@ export default function Home() {
       const uploadedPhotoUrls: string[] = [];
 
       for (const file of newSpotData.images) {
-        const presignRes = await axiosInstance.post("/api/spots/presigned-url", {
-          fileName: file.name,
-          fileType: file.type,
-        });
+        const presignRes = await axiosInstance.post(
+          "/api/spots/presigned-url",
+          {
+            fileName: file.name,
+            fileType: file.type,
+          },
+        );
 
         const { uploadUrl, publicUrl } = presignRes.data.data;
 
@@ -350,7 +349,7 @@ export default function Home() {
         .map((a: any) => {
           if (a.animalId) return { animalId: a.animalId };
           const found = backendAnimals.find(
-            (ba) => ba.name.toLowerCase() === a.name.toLowerCase()
+            (ba) => ba.name.toLowerCase() === a.name.toLowerCase(),
           );
           return found?.animalId ? { animalId: found.animalId } : null;
         })
@@ -358,7 +357,7 @@ export default function Home() {
 
       // 3. ส่ง JSON ไปบันทึก Spot ลง Database (POST /api/spots)
       const response = await axiosInstance.post("/api/spots", {
-        title,
+        title: finalTitle,
         description: newSpotData.description,
         address: newSpotData.address,
         lat: newSpotData.lat,
@@ -375,15 +374,22 @@ export default function Home() {
           photos: uploadedPhotoUrls,
           animals: newSpotData.animals,
         },
-        animalPinMap
+        animalPinMap,
       );
 
       setSpots((prev) => [{ ...createdSpot, pinName }, ...prev]);
       setSelectedSpot({ ...createdSpot, pinName });
       setShowSpotCard(true);
+      toast.success(response.data?.message || "Spot created successfully!");
     } catch (err) {
       console.error("Failed to create spot:", err);
-      alert("ไม่สามารถบันทึก Spot ได้ กรุณาตรวจสอบการเชื่อมต่อหรือลองใหม่อีกครั้ง");
+      if (isAxiosError(err) && err.response?.data?.message) {
+        toast.error(err.response.data.message);
+      } else {
+        toast.error("Unable to save spot. Please check your connection.");
+      }
+
+      throw err;
     }
   };
 

@@ -36,6 +36,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import axiosInstance from "@/utils/axiosInstance";
 import AnimalIcon from "@/components/spotModal/AnimalIcon";
+import { toast } from "sonner";
 
 interface AnimalItem {
   animalId: number;
@@ -57,10 +58,12 @@ interface SpotModalProps {
     lat: number;
     lng: number;
     address: string;
+    title: string;
     description: string;
+    date: Date;
     animals: AnimalItem[];
     images: File[];
-  }) => void;
+  }) => Promise<void> | void;
 }
 
 export default function SpotModal({
@@ -81,6 +84,8 @@ export default function SpotModal({
   const [isEditingImages, setIsEditingImages] = useState(false);
   const [animalsList, setAnimalsList] = useState<AnimalItem[]>([]);
   const [isLoadingAnimals, setIsLoadingAnimals] = useState(false);
+  const [title, setTitle] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // เพิ่มสัตว์ลงในรายการที่เลือก
   const handleSelectAnimal = (animal: AnimalItem) => {
@@ -89,41 +94,64 @@ export default function SpotModal({
 
   // ลบสัตว์ออกจากรายการที่เลือก
   const handleRemoveAnimal = (animalId: number) => {
-    setSelectedAnimals((prev) => prev.filter((item) => item.animalId !== animalId));
+    setSelectedAnimals((prev) =>
+      prev.filter((item) => item.animalId !== animalId),
+    );
   };
 
   // กรองสัตว์ที่ไม่ถูกเลือก และตรงกับคำค้นหา
   const availableAnimals = animalsList.filter(
     (animal) =>
-      !selectedAnimals.some((selected) => selected.animalId === animal.animalId) &&
-      animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      !selectedAnimals.some(
+        (selected) => selected.animalId === animal.animalId,
+      ) && animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   // save spot จาก form information
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!spotData) {
-      alert("ไม่พบข้อมูลพิกัดตำแหน่งบนแผนที่");
+      toast.error("Location coordinates not found on the map.");
+      return;
+    }
+    if (selectedAnimals.length === 0) {
+      toast.warning("Please select at least one animal species.");
       return;
     }
 
-    onSaveSpot({
-      lat: spotData.lat,
-      lng: spotData.lng,
-      address: spotData.address,
-      description: description,
-      animals: selectedAnimals,
-      images: selectedImages,
-    });
+    if (selectedImages.length === 0) {
+      toast.warning("Please upload at least one photo.");
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      await onSaveSpot({
+        lat: spotData.lat,
+        lng: spotData.lng,
+        address: spotData.address,
+        title: title.trim(),
+        description: description,
+        date: selectedDate || new Date(),
+        animals: selectedAnimals,
+        images: selectedImages,
+      });
 
-    setDescription("");
-    setSelectedAnimals([]);
-    setSelectedImages([]);
-    onClose(false);
+      // เคลียร์ค่าเมื่อบันทึกสำเร็จเท่านั้น
+      setTitle("");
+      setDescription("");
+      setSelectedAnimals([]);
+      setSelectedImages([]);
+      onClose(false);
+    } catch (error) {
+      // Error ถูกจัดการและแจ้งเตือนในหน้าหลักแล้ว Modal จะไม่ปิดเพื่อให้ผู้ใช้กดลองใหม่ได้
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setView("main");
+      setTitle("");
       setDescription("");
       setSelectedAnimals([]);
       setSelectedImages([]);
@@ -218,6 +246,17 @@ export default function SpotModal({
                     ))}
                   </div>
                 )}
+
+                {/* Title input */}
+                <div className="w-full">
+                  <Input
+                    placeholder="Enter spot title (e.g., Friendly cat near garden)"
+                    className="w-full rounded-xl border-border bg-card text-sm h-11 focus-visible:ring-secondary"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
 
                 {/* Spot Description */}
                 <div className="w-full min-h-[250px] md:min-h-full rounded-xl border border-border p-3 overflow-y-auto custom-scrollbar bg-card focus-within:ring-2 focus-within:ring-secondary flex flex-col">
@@ -315,8 +354,7 @@ export default function SpotModal({
                       }
                       className="cursor-pointer gap-2 rounded-lg py-2 text-foreground hover:text-secondary hover:bg-muted"
                     >
-                      <Camera className="w-4 h-4 text-secondary" /> Take a
-                      Photo
+                      <Camera className="w-4 h-4 text-secondary" /> Take a Photo
                     </DropdownMenuItem>
 
                     <DropdownMenuItem
@@ -384,9 +422,10 @@ export default function SpotModal({
               {/* Save Btn */}
               <Button
                 onClick={handleSave}
+                disabled={isSubmitting}
                 className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-6 h-9 rounded-xl font-medium cursor-pointer"
               >
-                Continue
+                {isSubmitting ? "Saving..." : "Continue"}
               </Button>
             </div>
           </>
