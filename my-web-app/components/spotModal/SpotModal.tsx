@@ -39,7 +39,7 @@ import AnimalIcon from "@/components/spotModal/AnimalIcon";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
-interface AnimalItem {
+export interface AnimalItem {
   animalId: number;
   categoryId: number;
   name: string;
@@ -47,9 +47,24 @@ interface AnimalItem {
   animalImagePin: string;
 }
 
+export type SpotImageItem =
+  | { type: "existing"; url: string }
+  | { type: "new"; file: File; previewUrl: string };
+
+export interface SpotEditData {
+  id: string;
+  title: string;
+  description: string;
+  date: Date;
+  animals: AnimalItem[];
+  images: string[]; // URL รูปเดิมทั้งหมด
+}
+
 interface SpotModalProps {
   isOpen: boolean;
   onClose: (open: boolean) => void;
+  mode?: "create" | "edit";
+  initialData?: SpotEditData | null;
   spotData: {
     lat: number;
     lng: number;
@@ -63,7 +78,8 @@ interface SpotModalProps {
     description: string;
     date: Date;
     animals: AnimalItem[];
-    images: File[];
+    images: File[]; // รูปใหม่เพิ่มมาตอน edit เเยกเพื่อเอามา upload to r2
+    existingImageUrls?: string[]; // รูปเดิมที่ผู้ใช้ยังเก็บไว้ตอน edit
   }) => Promise<void> | void;
 }
 
@@ -72,6 +88,8 @@ export default function SpotModal({
   onClose,
   spotData,
   onSaveSpot,
+  mode,
+  initialData,
 }: SpotModalProps) {
   const [view, setView] = useState<"main" | "select-animal">("main");
   const [description, setDescription] = useState("");
@@ -81,7 +99,7 @@ export default function SpotModal({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAnimals, setSelectedAnimals] = useState<AnimalItem[]>([]);
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedImages, setSelectedImages] = useState<SpotImageItem[]>([]);
   const [isEditingImages, setIsEditingImages] = useState(false);
   const [animalsList, setAnimalsList] = useState<AnimalItem[]>([]);
   const [isLoadingAnimals, setIsLoadingAnimals] = useState(false);
@@ -126,15 +144,31 @@ export default function SpotModal({
     }
     try {
       setIsSubmitting(true);
+
+      const existingImageUrls = selectedImages
+        .filter(
+          (item): item is { type: "existing"; url: string } =>
+            item.type === "existing",
+        )
+        .map((item) => item.url);
+
+      const newFiles = selectedImages
+        .filter(
+          (item): item is { type: "new"; file: File; previewUrl: string } =>
+            item.type === "new",
+        )
+        .map((item) => item.file);
+
       await onSaveSpot({
         lat: spotData.lat,
         lng: spotData.lng,
         address: spotData.address,
         title: title.trim(),
-        description: description,
+        description,
         date: selectedDate || new Date(),
         animals: selectedAnimals,
-        images: selectedImages,
+        images: newFiles,
+        existingImageUrls,
       });
 
       // เคลียร์ค่าเมื่อบันทึกสำเร็จเท่านั้น
@@ -179,9 +213,30 @@ export default function SpotModal({
         setIsLoadingAnimals(false);
       }
     };
-
     fetchAnimals();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (mode === "edit" && initialData) {
+      setTitle(initialData.title || "");
+      setDescription(initialData.description || "");
+      setSelectedDate(
+        initialData.date ? new Date(initialData.date) : new Date(),
+      );
+      setSelectedAnimals(initialData.animals || []);
+      setSelectedImages(
+        (initialData.images || []).map((url) => ({ type: "existing", url })),
+      );
+    } else {
+      // โหมด create เคลียร์ค่าเริ่มต้น
+      setTitle("");
+      setDescription("");
+      setSelectedDate(new Date());
+      setSelectedAnimals([]);
+      setSelectedImages([]);
+    }
+  }, [isOpen, mode, initialData]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -207,7 +262,11 @@ export default function SpotModal({
           )}
 
           <DialogTitle className="text-lg font-bold text-center text-foreground">
-            {view === "main" ? "Add New Spot" : "Add Animal Species"}
+            {view === "main"
+              ? mode == "edit"
+                ? "Edit Spot"
+                : "Add New Spot"
+              : "Add Animal Species"}
           </DialogTitle>
         </DialogHeader>
 
@@ -313,7 +372,11 @@ export default function SpotModal({
                             }`}
                           >
                             <img
-                              src={URL.createObjectURL(file)}
+                              src={
+                                file.type === "existing"
+                                  ? file.url
+                                  : file.previewUrl
+                              }
                               alt={`preview-${index}`}
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
                             />
@@ -435,7 +498,11 @@ export default function SpotModal({
                 disabled={isSubmitting}
                 className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-6 h-9 rounded-xl font-medium cursor-pointer"
               >
-                {isSubmitting ? "Saving..." : "Continue"}
+                {isSubmitting
+                  ? "Saving..."
+                  : mode === "edit"
+                    ? "Save Changes"
+                    : "Continue"}
               </Button>
             </div>
           </>
@@ -474,7 +541,7 @@ export default function SpotModal({
                   className="relative w-full h-56 md:h-48 rounded-2xl overflow-hidden border border-border bg-muted shadow-sm group"
                 >
                   <img
-                    src={URL.createObjectURL(file)}
+                    src={file.type === "existing" ? file.url : file.previewUrl}
                     alt={`edit-preview-${index}`}
                     className="w-full h-full object-cover"
                   />
@@ -603,7 +670,12 @@ export default function SpotModal({
           onChange={(e) => {
             const files = Array.from(e.target.files || []);
             if (files.length > 0) {
-              setSelectedImages((prev) => [...prev, ...files]);
+              const newItems: SpotImageItem[] = files.map((file) => ({
+                type: "new",
+                file,
+                previewUrl: URL.createObjectURL(file),
+              }));
+              setSelectedImages((prev) => [...prev, ...newItems]);
             }
           }}
         />
@@ -616,7 +688,12 @@ export default function SpotModal({
           onChange={(e) => {
             const files = Array.from(e.target.files || []);
             if (files.length > 0) {
-              setSelectedImages((prev) => [...prev, ...files]);
+              const newItems: SpotImageItem[] = files.map((file) => ({
+                type: "new",
+                file,
+                previewUrl: URL.createObjectURL(file),
+              }));
+              setSelectedImages((prev) => [...prev, ...newItems]);
             }
           }}
         />

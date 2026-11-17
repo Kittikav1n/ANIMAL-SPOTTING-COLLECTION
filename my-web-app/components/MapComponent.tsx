@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { AnimalItem } from "./spotModal/SpotModal";
 
 // Fix Leaflet Default Marker Icon in Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -24,6 +25,8 @@ export interface SpotPinData {
   lng: number;
   address?: string;
   photoUrl?: string;
+  date?: string;
+  animals?: AnimalItem[];
 }
 
 interface MapComponentProps {

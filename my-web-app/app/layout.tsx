@@ -30,7 +30,18 @@ export default function RootLayout({
           <Navigation />
           <div className="flex-1 flex flex-col h-full sm:pl-20">
             {children}
-            <Toaster richColors position="top-center" />
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                classNames: {
+                  toast: "rounded-xl border shadow-md font-sans",
+                  warning: "!bg-[#FBF3D5] !text-[#6B4E16] !border-[#B88928]/30",
+                  success: "!bg-[#E0ECDD] !text-[#2F452C] !border-[#526E4E]/30", // สีเขียวโทนเดียวกับโปรไฟล์คุณ
+                  error: "!bg-[#FDECEC] !text-[#AE3C32] !border-[#AE3C32]/30", // สีแดงโทนเดียวกับ Error ในเว็บคุณ
+                  info: "!bg-white !text-slate-800 !border-slate-200",
+                },
+              }}
+            />
           </div>
         </AuthProvider>
         <script
