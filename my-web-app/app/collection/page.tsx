@@ -283,95 +283,18 @@ export default function Collection() {
         }
       }
     }
+}, [authStatus, selectedSpotId]);
 
-    void checkSession();
-
-    return () => controller.abort();
-  }, [sessionCheck]);
-
-  useEffect(() => {
-    const owner = profile;
-    if (authStatus !== "member" || !owner) return;
-
-    const controller = new AbortController();
-
-    async function loadCollection(owner: CollectionProfile) {
-      try {
-        const response = await axiosInstance.get<{
-          success: boolean;
-          data: CollectionSpotResponse[];
-        }>("/api/collection", {
-          withCredentials: true,
-          signal: controller.signal,
-        });
-
-        if (controller.signal.aborted) return;
-
-        const result = response.data;
-        if (result.success !== true || !Array.isArray(result.data)) {
-          throw new Error("Invalid collection response");
-        }
-
-        setSpots(result.data.map((spot) => toCollectionSpot(spot, owner)));
-        setCollectionError(null);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-
-        setSpots(null);
-        if (isAxiosError(error) && error.response?.status === 401) {
-          setProfile(null);
-          setSelectedSpotId(null);
-          setAuthStatus("guest");
-          return;
-        }
-
-        setCollectionError("Unable to load your spots. Please try again.");
-      }
-    }
-
-    void loadCollection(owner);
-    return () => controller.abort();
-  }, [authStatus, profile, collectionCheck]);
-
-  useLayoutEffect(() => {
-    if (authStatus !== "member") return;
-
-    if (selectedSpotId) {
-      const scroller = detailScrollRef.current;
-      const post = document.getElementById(`collection-post-${selectedSpotId}`);
-      if (!scroller || !post) return;
-
-      scroller.scrollTop = post.previousElementSibling
-        ? scroller.scrollTop +
-          post.getBoundingClientRect().top -
-          scroller.getBoundingClientRect().top -
-          16
-        : 0;
-      post.focus({ preventScroll: true });
-    } else if (gridPosition.current) {
-      const { spotId, scrollTop } = gridPosition.current;
-      if (gridScrollRef.current) gridScrollRef.current.scrollTop = scrollTop;
-      document
-        .getElementById(`collection-spot-${spotId}`)
-        ?.focus({ preventScroll: true });
-      gridPosition.current = null;
-    }
-  }, [authStatus, selectedSpotId]);
-
-  function openSpot(spotId: string) {
-    gridPosition.current = {
-      spotId,
-      scrollTop: gridScrollRef.current?.scrollTop ?? 0,
-    };
+function openSpot(spotId: string) {
+    gridPosition.current = { spotId, scrollTop: gridScrollRef.current?.scrollTop ?? 0 };
     setSelectedSpotId(spotId);
-  }
+}
 
-  const selectedSpot =
-    authStatus === "member"
-      ? spots?.find((spot) => spot.id === selectedSpotId)
-      : undefined;
+const selectedSpot = authStatus === "member"
+    ? spots?.find((spot) => spot.id === selectedSpotId)
+    : undefined;
 
-  const profileSummary = {
+const profileSummary = {
     avatar: profile?.avatar ?? "",
     name: profile?.username ?? "FirstName LastName",
     email: profile?.email ?? "name@example.com",

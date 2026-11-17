@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { createPortal } from "react-dom";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface SpotPhotoViewerModalProps {
   isOpen: boolean;
@@ -17,87 +18,98 @@ export default function SpotPhotoViewerModal({
   initialIndex = 0,
 }: SpotPhotoViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setCurrentIndex(initialIndex);
-    }
-  }, [isOpen, initialIndex]);
+    setMounted(true);
+  }, []);
 
-  if (!isOpen || images.length === 0) return null;
+  useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex, isOpen]);
 
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
-  };
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") {
+        setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+      }
+      if (e.key === "ArrowRight") {
+        setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, images.length, onClose]);
 
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
-  };
+  if (!isOpen || !mounted || images.length === 0) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between p-4 animate-in fade-in duration-200">
-      {/* Top Header: Back Button */}
-      <div className="flex items-center justify-between z-10 shrink-0">
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* ปุ่มปิดมุมขวาบน */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute top-4 right-4 z-10 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+        aria-label="Close photo viewer"
+      >
+        <X className="size-6" />
+      </button>
+
+      {/* ตัวนับจำนวนรูป */}
+      {images.length > 1 && (
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/60 text-white text-xs font-medium">
+          {currentIndex + 1} / {images.length}
+        </div>
+      )}
+
+      {/* ปุ่มเลื่อนซ้าย */}
+      {images.length > 1 && (
         <button
           type="button"
-          onClick={onClose}
-          className="size-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Back"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCurrentIndex((prev) =>
+              prev === 0 ? images.length - 1 : prev - 1
+            );
+          }}
+          className="absolute left-4 z-10 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+          aria-label="Previous photo"
         >
-          <ArrowLeft className="size-5" />
+          <ChevronLeft className="size-6" />
         </button>
-        <span className="text-white/70 text-xs font-medium px-2.5 py-1 rounded-full bg-white/10">
-          {currentIndex + 1} / {images.length}
-        </span>
-      </div>
+      )}
 
-      {/* Main Photo Center */}
-      <div className="relative flex-1 min-h-0 min-w-0 w-full flex items-center justify-center overflow-hidden my-3">
-        <img
-          src={images[currentIndex]}
-          alt={`Photo ${currentIndex + 1}`}
-          className="max-h-full max-w-full w-auto h-auto object-contain rounded-2xl shadow-lg select-none"
-        />
+      {/* รูปภาพหลัก */}
+      <img
+        src={images[currentIndex]}
+        alt={`Spot photo ${currentIndex + 1}`}
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[88dvh] max-w-[92vw] object-contain rounded-xl shadow-2xl select-none"
+      />
 
-        {/* Previous / Next arrows if multiple images */}
-        {images.length > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={handlePrev}
-              className="absolute left-2 size-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="size-5" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNext}
-              className="absolute right-2 size-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <ChevronRight className="size-5" />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Bottom Pagination Dots */}
-      {images.length > 1 ? (
-        <div className="flex items-center justify-center gap-2 pb-4 z-10 shrink-0">
-          {images.map((_, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setCurrentIndex(idx)}
-              className={`h-2 rounded-full transition-all cursor-pointer ${
-                idx === currentIndex ? "w-6 bg-white" : "w-2 bg-white/40"
-              }`}
-              aria-label={`Go to slide ${idx + 1}`}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="h-4 shrink-0" />
+      {/* ปุ่มเลื่อนขวา */}
+      {images.length > 1 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCurrentIndex((prev) =>
+              prev === images.length - 1 ? 0 : prev + 1
+            );
+          }}
+          className="absolute right-4 z-10 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+          aria-label="Next photo"
+        >
+          <ChevronRight className="size-6" />
+        </button>
       )}
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

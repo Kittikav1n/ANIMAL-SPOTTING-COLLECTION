@@ -1,114 +1,95 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useEffect } from "react";
+import { Icon } from "@iconify/react";
 
 interface DesktopPhotoViewerProps {
   isOpen: boolean;
   onClose: () => void;
   images: string[];
-  initialIndex?: number;
-  onIndexChange?: (index: number) => void;
+  initialIndex: number;
+  onIndexChange: (index: number) => void;
 }
 
 export default function DesktopPhotoViewer({
   isOpen,
   onClose,
   images,
-  initialIndex = 0,
+  initialIndex,
   onIndexChange,
 }: DesktopPhotoViewerProps) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-
   useEffect(() => {
-    if (isOpen) {
-      setCurrentIndex(initialIndex);
-    }
-  }, [isOpen, initialIndex]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") {
+        onIndexChange((initialIndex + 1) % images.length);
+      }
+      if (e.key === "ArrowLeft") {
+        onIndexChange((initialIndex - 1 + images.length) % images.length);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, initialIndex, images.length, onClose, onIndexChange]);
 
   if (!isOpen || images.length === 0) return null;
 
-  const goToIndex = (index: number) => {
-    setCurrentIndex(index);
-    onIndexChange?.(index);
-  };
-
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const nextIdx = currentIndex > 0 ? currentIndex - 1 : images.length - 1;
-    goToIndex(nextIdx);
-  };
-
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const nextIdx = currentIndex < images.length - 1 ? currentIndex + 1 : 0;
-    goToIndex(nextIdx);
-  };
-
   return (
-    <div className="hidden md:flex w-[1055px] h-[640px] max-w-[calc(100vw-420px)] max-h-[calc(100vh-110px)] bg-neutral-900/90 backdrop-blur-xl text-white rounded-3xl shadow-2xl overflow-hidden relative flex-col justify-between p-5 animate-in fade-in zoom-in-95 duration-200 border border-white/10">
-      {/* Top Header: Badge indicator + Close Button 'X' */}
-      <div className="flex items-center justify-between z-20 shrink-0">
-        <span className="text-xs text-white/70 font-medium px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-sm">
-          {currentIndex + 1} of {images.length}
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="size-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Close"
-        >
-          <X className="size-4" />
-        </button>
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 md:p-10 animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      {/* ปุ่มปิดมุมขวาบน */}
+      <button
+        onClick={onClose}
+        aria-label="Close photo viewer"
+        className="absolute top-4 right-4 z-[10000] flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/30 transition"
+      >
+        <Icon icon="ph:x-bold" className="w-5 h-5" />
+      </button>
+
+      {/* ตัวนับจำนวนรูป */}
+      <div className="absolute top-5 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3.5 py-1 text-xs font-medium text-white">
+        {initialIndex + 1} / {images.length}
       </div>
 
-      {/* Main Image Stage - Balanced and Framed with Subtle Shadow */}
-      <div className="relative flex-1 min-h-0 min-w-0 w-full flex items-center justify-center overflow-hidden my-2">
-        <img
-          src={images[currentIndex] || images[0]}
-          alt={`Photo ${currentIndex + 1}`}
-          className="max-w-full max-h-full w-auto h-auto object-contain rounded-2xl shadow-xl select-none"
-        />
-
-        {/* Left Arrow */}
-        {images.length > 1 && (
-          <button
-            type="button"
-            onClick={handlePrev}
-            className="absolute left-2 size-10 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition-all cursor-pointer shadow-lg hover:scale-105 backdrop-blur-sm"
-            aria-label="Previous"
-          >
-            <ChevronLeft className="size-6" />
-          </button>
-        )}
-
-        {/* Right Arrow */}
-        {images.length > 1 && (
-          <button
-            type="button"
-            onClick={handleNext}
-            className="absolute right-2 size-10 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition-all cursor-pointer shadow-lg hover:scale-105 backdrop-blur-sm"
-            aria-label="Next"
-          >
-            <ChevronRight className="size-6" />
-          </button>
-        )}
-      </div>
-
-      {/* Bottom Pagination Dots */}
+      {/* ปุ่มเลื่อนซ้าย */}
       {images.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5 pt-1 z-20 shrink-0">
-          {images.map((_, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => goToIndex(idx)}
-              className={`h-2 rounded-full transition-all cursor-pointer ${
-                idx === currentIndex ? "w-6 bg-white" : "w-2 bg-white/35 hover:bg-white/60"
-              }`}
-            />
-          ))}
-        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onIndexChange((initialIndex - 1 + images.length) % images.length);
+          }}
+          className="absolute left-3 md:left-6 z-[10000] flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/30 transition"
+        >
+          <Icon icon="ph:caret-left-bold" className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* รูปภาพเต็มหน้าจอ */}
+      <div
+        className="relative flex max-h-[88vh] max-w-[92vw] items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={images[initialIndex]}
+          alt={`Spot photo ${initialIndex + 1}`}
+          className="max-h-[88vh] max-w-[92vw] rounded-xl object-contain shadow-2xl select-none"
+        />
+      </div>
+
+      {/* ปุ่มเลื่อนขวา */}
+      {images.length > 1 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onIndexChange((initialIndex + 1) % images.length);
+          }}
+          className="absolute right-3 md:right-6 z-[10000] flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/30 transition"
+        >
+          <Icon icon="ph:caret-right-bold" className="w-6 h-6" />
+        </button>
       )}
     </div>
   );
