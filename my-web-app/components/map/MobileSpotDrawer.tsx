@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, MapPin } from "lucide-react";
 import { SpotPinData } from "@/components/MapComponent";
+import AnimalIcon from "@/components/spotModal/AnimalIcon";
 
 interface MobileSpotDrawerProps {
-  spot: SpotPinData | null;
+  spot: (SpotPinData & {
+    timeAgo?: string;
+    author?: SpotPinData["author"] & { role?: string };
+  }) | null;
   category?: string | null;
+  animalPinMap?: Record<string, string>;
   isOpen: boolean;
   onClose: () => void;
   onPhotoClick?: (imgUrl: string, index?: number) => void;
@@ -15,26 +20,21 @@ interface MobileSpotDrawerProps {
 export default function MobileSpotDrawer({
   spot,
   category,
+  animalPinMap,
   isOpen,
   onClose,
   onPhotoClick,
 }: MobileSpotDrawerProps) {
-  // 3 Distinct Snap Levels as designed in Figma:
-  // 1. "collapsed" (ค่าเริ่มต้น) = ~68px: Handle bar + Title + Close 'X'
-  // 2. "peek" (ปัดขึ้น 30%) = ~320px: Header + Author + Description + Photo tops peeking
-  // 3. "full" (ยืดสุด 100%) = Max height above bottom nav: Full photo cards side-by-side
   const [expandState, setExpandState] = useState<"collapsed" | "peek" | "full">(
     "collapsed"
   );
 
-  // When a new spot is selected, reset to default ("collapsed")
   useEffect(() => {
     if (isOpen) {
       setExpandState("collapsed");
     }
   }, [spot?.id, isOpen]);
 
-  // Touch drag swipe gestures support
   const touchStartY = useRef<number | null>(null);
   const touchCurrentY = useRef<number | null>(null);
 
@@ -48,22 +48,19 @@ export default function MobileSpotDrawer({
 
   const handleTouchEnd = () => {
     if (touchStartY.current === null || touchCurrentY.current === null) return;
-    const diff = touchStartY.current - touchCurrentY.current; // >0 is swipe up, <0 is swipe down
+    const diff = touchStartY.current - touchCurrentY.current;
     const threshold = 35;
 
     if (diff > threshold) {
-      // Swipe UP
       setExpandState((prev) => {
         if (prev === "collapsed") return "peek";
         if (prev === "peek") return "full";
         return "full";
       });
     } else if (diff < -threshold) {
-      // Swipe DOWN
       setExpandState((prev) => {
         if (prev === "full") return "peek";
         if (prev === "peek") return "collapsed";
-        // Swiping down from collapsed closes drawer
         onClose();
         return "collapsed";
       });
@@ -85,6 +82,13 @@ export default function MobileSpotDrawer({
 
   const title = spot ? spot.title : `${category || "Animal"} nearby`;
   const images = spot?.images || [];
+  const categories = spot?.category
+    ? Array.isArray(spot.category)
+      ? spot.category
+      : [spot.category]
+    : category
+    ? [category]
+    : [];
 
   return (
     <div
@@ -92,7 +96,7 @@ export default function MobileSpotDrawer({
         expandState === "collapsed"
           ? "h-[68px] px-5 pt-2 pb-3"
           : expandState === "peek"
-          ? "h-[320px] px-5 pt-2 pb-4"
+          ? "h-[380px] px-5 pt-2 pb-4"
           : "h-[calc(100dvh-72px-32px)] px-5 pt-2 pb-4"
       }`}
       onTouchStart={handleTouchStart}
@@ -128,7 +132,7 @@ export default function MobileSpotDrawer({
         </button>
       </div>
 
-      {/* 3. Detailed content for "peek" (30%) and "full" (100%) states */}
+      {/* 3. Detailed content for "peek" and "full" states */}
       {expandState !== "collapsed" && (
         <div
           className={`flex-1 flex flex-col gap-3 min-h-0 ${
@@ -137,28 +141,84 @@ export default function MobileSpotDrawer({
               : "overflow-hidden"
           }`}
         >
-          {/* Creator / Author row */}
-          {spot && (
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="size-7 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold border border-orange-200">
-                {spot.author?.avatar || spot.author?.name?.charAt(0) || "A"}
-              </div>
-              <span className="text-xs font-semibold text-foreground">
-                {spot.author?.name || "Spotter"}
-              </span>
+          {/* Full-width Top Border Row: Author (Left) + Animal Badges (Right) */}
+          {(spot || categories.length > 0) && (
+            <div className="w-full pt-2.5 border-t border-border/60 flex items-center justify-between gap-2 shrink-0">
+              {/* Left: Author */}
+              {spot ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="size-7 rounded-full bg-amber-100/80 text-amber-800 flex items-center justify-center text-xs font-semibold border border-amber-200/80 shrink-0 uppercase">
+                    {spot.author?.avatar || spot.author?.name?.charAt(0) || "A"}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-1.5 text-xs leading-tight">
+                      <span className="font-semibold text-foreground truncate">
+                        {spot.author?.name || "Spotter"}
+                      </span>
+                      {spot.timeAgo && (
+                        <>
+                          <span className="text-muted-foreground/60">•</span>
+                          <span className="text-[11px] text-muted-foreground shrink-0">
+                            {spot.timeAgo}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {spot.author?.role && (
+                      <span className="text-[11px] text-muted-foreground truncate leading-tight">
+                        {spot.author.role}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div />
+              )}
+            </div>
+          )}
+        {/* Animal Badge Tags */}
+          {categories.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {categories.map((animalName) => {
+                const key = animalName.toLowerCase();
+                const pin =
+                  animalPinMap?.[key] ||
+                  spot?.pinName ||
+                  "ph:paw-print-fill";
+                return (
+                  <span
+                    key={animalName}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide"
+                  >
+                    <AnimalIcon pinName={pin} className="size-3.5" />
+                    {animalName}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Location */}
+          {spot?.address && (
+            <div
+              className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 shrink-0"
+              title={spot.address}
+            >
+              <MapPin className="size-3.5 shrink-0 text-primary" />
+              <span className="truncate">{spot.address}</span>
             </div>
           )}
 
           {/* Description */}
           {spot?.description && (
-            <p className="text-xs text-muted-foreground leading-relaxed shrink-0 line-clamp-3">
+            <p className="text-sm font-medium text-muted-foreground leading-relaxed shrink-0 line-clamp-3">
               {spot.description}
             </p>
           )}
 
-          {/* Photo Cards (2-Column Grid matching Figma design) */}
+          {/* Photo Cards (2-Column Grid) */}
           {images.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-2 gap-3 pt-0.5">
               {images.map((imgUrl, idx) => (
                 <div
                   key={idx}

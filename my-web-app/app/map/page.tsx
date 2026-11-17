@@ -183,7 +183,7 @@ export default function Home() {
   // รายการหมวดหมู่สัตว์ดึงจาก Backend เท่านั้น
   const dynamicFilterChips: AnimalChipItem[] = useMemo(() => {
     const topAnimals: AnimalChipItem[] = backendAnimals
-      .slice(0, 5) // ยอดนิยม order มาให้จาก bn เเล้ว
+      .slice(3, 8) // ยอดนิยม order มาให้จาก bn เเล้ว
       .map((a: any) => ({
         id: a.name,
         label: a.name.toUpperCase(),
@@ -194,16 +194,17 @@ export default function Home() {
 
   // Map ชื่อสัตว์ -> รหัส pinName จาก Database สำหรับใช้แสดงไอคอนบนหมุดแผนที่
   const animalPinMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    backendAnimals.forEach((a: any) => {
-      const key = (a.name || a.id || "").toLowerCase();
-      const pin = a.pinName;
-      if (key && pin) {
-        map[key] = pin;
-      }
-    });
-    return map;
-  }, [backendAnimals]);
+      const map: Record<string, string> = {};
+      backendAnimals.forEach((a: any) => {
+        const key = String(a.name || a.id || "").trim().toLowerCase();
+        // ดักทั้ง camelCase (pinName) และ snake_case (pin_name) จาก Backend
+        const pin = a.pinName || a.pin_name || a.icon;
+        if (key && pin) {
+          map[key] = pin;
+        }
+      });
+      return map;
+    }, [backendAnimals]);
 
   const filteredSpots = useMemo(() => {
     return spots
@@ -448,6 +449,7 @@ export default function Home() {
           <div className="pointer-events-auto shrink-0 animate-in fade-in zoom-in-95 duration-200">
             <SpotCard
               data={selectedSpot}
+              animalPinMap={animalPinMap}
               onClose={() => {
                 setShowSpotCard(false);
                 setPhotoViewerOpen(false);
@@ -475,20 +477,19 @@ export default function Home() {
       <MobileSpotDrawer
         spot={selectedSpot}
         category={selectedCategory}
+        animalPinMap={animalPinMap}
         isOpen={showSpotCard}
         onClose={() => setShowSpotCard(false)}
         onPhotoClick={handleOpenPhotoViewer}
       />
 
       {/* 4. Full-Screen Photo Viewer Modal (Mobile only) */}
-      <div className="block md:hidden">
         <SpotPhotoViewerModal
           isOpen={photoViewerOpen}
           onClose={() => setPhotoViewerOpen(false)}
           images={activePhotoList}
           initialIndex={initialPhotoIndex}
         />
-      </div>
 
       {/* 5. Interactive Leaflet Map */}
       <div className="flex-1 w-full relative h-full">
