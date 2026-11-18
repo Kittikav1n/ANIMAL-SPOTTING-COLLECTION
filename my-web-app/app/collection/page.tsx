@@ -5,7 +5,8 @@ import Link from "next/link";
 import { isAxiosError } from "axios";
 import axiosInstance from "@/utils/axiosInstance";
 import GuestProfileContent from "@/components/auth/GuestProfileContent";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SpotPinData } from "@/components/MapComponent";
 import SpotModal from "@/components/spotModal/SpotModal";
 import { toast } from "sonner";
@@ -222,12 +223,18 @@ function SpotPost({
 }
 
 export default function Collection() {
-  const [authStatus, setAuthStatus] = useState<
-    "checking" | "guest" | "member" | "error"
-  >("checking");
-  const [sessionCheck, setSessionCheck] = useState(0);
+  const { user } = useAuth();
+  return <CollectionContent key={user?.userID ?? "guest"} />;
+}
 
-  const [profile, setProfile] = useState<CollectionProfile | null>(null);
+function CollectionContent() {
+  const { user, isLoading, setUser } = useAuth();
+  const authStatus = isLoading ? "checking" : user ? "member" : "guest";
+  const profile = useMemo<CollectionProfile | null>(() => user ? {
+    username: user.username,
+    email: user.email,
+    avatar: user.profileImage ?? "",
+  } : null, [user]);
   const [spots, setSpots] = useState<SpotPinData[] | null>(null);
   const [collectionError, setCollectionError] = useState<string | null>(null);
   const [collectionCheck, setCollectionCheck] = useState(0);
@@ -240,54 +247,6 @@ export default function Collection() {
   const [editingSpot, setEditingSpot] = useState<SpotPinData | null>(null);
   const [deletingSpot, setDeletingSpot] = useState<SpotPinData | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function checkSession() {
-      try {
-        const response = await axiosInstance.get("/api/auth/me", {
-          withCredentials: true,
-          signal: controller.signal,
-        });
-
-        if (controller.signal.aborted) return;
-
-        const result = response.data;
-
-        if (result.success !== true || !result.data?.userID) {
-          throw new Error("Invalid session response");
-        }
-
-        if (!controller.signal.aborted) {
-          setProfile({
-            username: result.data.username,
-            email: result.data.email,
-            avatar: result.data.profileImage ?? "",
-          });
-
-          setAuthStatus("member");
-        }
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          setProfile(null);
-          setSpots(null);
-          setSelectedSpotId(null);
-          setCollectionError(null);
-
-          setAuthStatus(
-            isAxiosError(error) && error.response?.status === 401
-              ? "guest"
-              : "error",
-          );
-        }
-      }
-    }
-
-    void checkSession();
-
-    return () => controller.abort();
-  }, [sessionCheck]);
 
   useEffect(() => {
     const owner = profile;
@@ -319,9 +278,8 @@ export default function Collection() {
 
         setSpots(null);
         if (isAxiosError(error) && error.response?.status === 401) {
-          setProfile(null);
           setSelectedSpotId(null);
-          setAuthStatus("guest");
+          setUser(null);
           return;
         }
 
@@ -331,7 +289,7 @@ export default function Collection() {
 
     void loadCollection(owner);
     return () => controller.abort();
-  }, [authStatus, profile, collectionCheck]);
+  }, [authStatus, profile, collectionCheck, setUser]);
 
   useLayoutEffect(() => {
     if (authStatus !== "member") return;
@@ -471,6 +429,9 @@ export default function Collection() {
       setEditingSpot(null);
     } catch (err) {
       console.error("Failed to update spot:", err);
+      if (isAxiosError(err) && err.response?.status === 401) {
+        setUser((current) => current?.userID === user?.userID ? null : current);
+      }
       if (isAxiosError(err) && err.response?.data?.message) {
         toast.error(err.response.data.message);
       } else {
@@ -497,6 +458,9 @@ export default function Collection() {
       toast.success("Spot deleted");
       setDeletingSpot(null);
     } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        setUser((current) => current?.userID === user?.userID ? null : current);
+      }
       toast.error("Failed to delete spot. Please try again.");
     } finally {
       setIsDeleting(false);
@@ -550,23 +514,6 @@ export default function Collection() {
               >
                 Checking your account...
               </p>
-            )}
-            {authStatus === "error" && (
-              <div className="mt-6 text-center">
-                <p role="alert" className="text-sm text-[#AE3C32]">
-                  Cannot connect to the server.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthStatus("checking");
-                    setSessionCheck((current) => current + 1);
-                  }}
-                  className="mt-3 min-h-11 cursor-pointer rounded-md border border-[#526E4E] px-5 text-sm text-[#526E4E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E]"
-                >
-                  Try again
-                </button>
-              </div>
             )}
             {authStatus === "guest" && <GuestProfileContent />}
           </section>
