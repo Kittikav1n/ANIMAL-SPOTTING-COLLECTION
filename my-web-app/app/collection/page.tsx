@@ -119,7 +119,7 @@ function SpotPost({
       tabIndex={-1}
       className="space-y-3 focus:outline-none"
     >
-      <header className="flex items-center justify-between gap-3">
+    <header className="flex items-center gap-6 sm:gap-8">
         <span
           aria-hidden="true"
           className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] text-[#526E4E] sm:size-12"
@@ -135,7 +135,7 @@ function SpotPost({
             <User className="size-5 sm:size-6" />
           )}
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="break-words text-base font-semibold sm:text-lg">
             {spot.author.name}
           </p>
