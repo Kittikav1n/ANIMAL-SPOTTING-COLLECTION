@@ -88,7 +88,7 @@ export function Navigation() {
                     className="size-7 rounded-full object-cover"
                   />
                 ) : (
-                  <Icon className="size-16 stroke-[2]" />
+                  <Icon className="size-6 stroke-[2]" />
                 )}
               </div>
               <span className="text-xs">{item.label}</span>
