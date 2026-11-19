@@ -5,16 +5,16 @@ import { X, ChevronDown, MapPin } from "lucide-react";
 import AnimalIcon from "@/components/spotModal/AnimalIcon";
 
 export interface SpotCardData {
-  id?: string | number;
+  id?: string;
   title: string;
   address?: string;
   description: string;
-  category: string | string[];
+  category: string[];
   pinName?: string;
   images: string[];
   author: {
     name: string;
-    avatar: string;
+    avatar?: string;
   };
 }
 

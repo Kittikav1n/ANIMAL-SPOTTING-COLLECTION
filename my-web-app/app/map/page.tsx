@@ -21,6 +21,8 @@ import { SpotPinData } from "@/components/MapComponent";
 import MapHintBanner from "@/components/spotModal/MapHintBanner";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ssr: false,
@@ -36,6 +38,8 @@ interface ExtendedAnimalOption extends AnimalCategoryOption {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [spots, setSpots] = useState<SpotPinData[]>([]);
   const [showSpotCard, setShowSpotCard] = useState(false);
@@ -264,6 +268,12 @@ export default function Home() {
 
   // ทำงานเมื่อ Double-click บนแผนที่เพื่อเปิด Modal สร้าง Spot
   const handleMapDoubleClick = (lat: number, lng: number, address: string) => {
+    if (!user) {
+      toast.error("Please log in before creating a spot.");
+      router.push("/login");
+      return;
+    }
+    
     setAddSpotCoord({ lat, lng, address });
     setIsOpen(true);
   };
@@ -369,10 +379,10 @@ export default function Home() {
           ...rawCreated,
           photos: uploadedPhotoUrls,
           animals: newSpotData.animals,
+          user: rawCreated.user,
         },
         animalPinMap,
       );
-      console.log("create spot ", createdSpot);
       setSpots((prev) => [{ ...createdSpot, pinName }, ...prev]);
       setSelectedSpot({ ...createdSpot, pinName });
       setShowSpotCard(true);
