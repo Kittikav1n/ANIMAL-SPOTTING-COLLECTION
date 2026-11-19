@@ -637,7 +637,7 @@ function CollectionContent() {
               ) : (
                 <ul
                   aria-label="Spotting photos"
-                  className={`grid w-full gap-px overflow-hidden rounded-sm ${spots.length < 3 ? "grid-cols-2" : "grid-cols-3"}`}
+                  className={`grid w-full grid-cols-2 gap-px overflow-hidden rounded-sm ${spots.length >= 3 ? "sm:grid-cols-3" : ""}`}
                 >
                   {spots.map((spot) => (
                     <li key={spot.id} className="overflow-hidden bg-slate-100">
@@ -653,10 +653,10 @@ function CollectionContent() {
                             src={spot.images[0]}
                             alt={spot.title}
                             loading="lazy"
-                            className="block aspect-[4/3] w-full object-cover"
+                            className="block aspect-square w-full object-cover sm:aspect-[4/3]"
                           />
                         ) : (
-                          <span className="grid aspect-[4/3] w-full place-items-center text-slate-400">
+                          <span className="grid aspect-square w-full place-items-center text-slate-400 sm:aspect-[4/3]">
                             <ImageOff className="size-8" aria-hidden="true" />
                             <span className="sr-only">
                               {spot.title}: No photos
