@@ -534,7 +534,7 @@ export default function SpotModal({
                 </span>
               </button>
               <h3 className="text-base font-bold text-foreground">
-                Edit Image/Video
+                Edit Image
               </h3>
               <Button
                 type="button"
