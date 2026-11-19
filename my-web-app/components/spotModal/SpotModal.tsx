@@ -101,6 +101,7 @@ export default function SpotModal({
   const [selectedAnimals, setSelectedAnimals] = useState<AnimalItem[]>([]);
   const [selectedImages, setSelectedImages] = useState<SpotImageItem[]>([]);
   const [isEditingImages, setIsEditingImages] = useState(false);
+  const [previewFullImage, setPreviewFullImage] = useState<string | null>(null);
   const [animalsList, setAnimalsList] = useState<AnimalItem[]>([]);
   const [isLoadingAnimals, setIsLoadingAnimals] = useState(false);
   const [title, setTitle] = useState("");
@@ -355,9 +356,9 @@ export default function SpotModal({
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 w-full">
-                      {selectedImages.slice(0, 5).map((file, index) => {
-                        const isLastVisible = index === 4;
-                        const remainingCount = selectedImages.length - 5;
+                      {selectedImages.slice(0, 6).map((file, index) => {
+                        const mobileRemaining = selectedImages.length - 5;
+                        const desktopRemaining = selectedImages.length - 6;
 
                         return (
                           <div
@@ -369,6 +370,8 @@ export default function SpotModal({
                               index === 0
                                 ? "col-span-2 md:col-span-1 h-36 md:h-28"
                                 : "h-28 md:h-28"
+                            } ${
+                              index === 5 ? "hidden md:block" : "" // รูปที่ 6 ซ่อนบนมือถือ แสดงเฉพาะ Desktop
                             }`}
                           >
                             <img
@@ -381,9 +384,17 @@ export default function SpotModal({
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
                             />
 
-                            {isLastVisible && remainingCount > 0 && (
-                              <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center text-white font-bold text-lg">
-                                +{remainingCount}
+                            {/* Overlay +N สำหรับมือถือ (รูปที่ 5, index === 4) */}
+                            {index === 4 && mobileRemaining > 0 && (
+                              <div className="md:hidden absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center text-white font-bold text-lg">
+                                +{mobileRemaining}
+                              </div>
+                            )}
+
+                            {/* Overlay +N สำหรับ Desktop (รูปที่ 6, index === 5) */}
+                            {index === 5 && desktopRemaining > 0 && (
+                              <div className="hidden md:flex absolute inset-0 bg-black/50 backdrop-blur-[2px] items-center justify-center text-white font-bold text-lg">
+                                +{desktopRemaining}
                               </div>
                             )}
 
@@ -535,33 +546,61 @@ export default function SpotModal({
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {selectedImages.map((file, index) => (
-                <div
-                  key={index}
-                  className="relative w-full h-56 md:h-48 rounded-2xl overflow-hidden border border-border bg-muted shadow-sm group"
-                >
-                  <img
-                    src={file.type === "existing" ? file.url : file.previewUrl}
-                    alt={`edit-preview-${index}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedImages((prev) =>
-                        prev.filter((_, i) => i !== index),
-                      );
-                      if (selectedImages.length <= 1) {
-                        setIsEditingImages(false);
-                      }
-                    }}
-                    className="absolute top-3 right-3 bg-black/70 hover:bg-destructive text-white rounded-full p-1.5 transition shadow-lg cursor-pointer"
+              {selectedImages.map((file, index) => {
+                const imgUrl =
+                  file.type === "existing" ? file.url : file.previewUrl;
+                return (
+                  <div
+                    key={index}
+                    onClick={() => setPreviewFullImage(imgUrl)} // <-- กดรูปเพื่อดูเต็มจอ
+                    className="relative w-full h-56 md:h-48 rounded-2xl overflow-hidden border border-border bg-muted shadow-sm group cursor-zoom-in"
                   >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                    <img
+                      src={imgUrl}
+                      alt={`edit-preview-${index}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // <-- กันไม่ให้ไปทริกเกอร์เปิดรูปเต็มตอนกดปุ่มลบ
+                        setSelectedImages((prev) =>
+                          prev.filter((_, i) => i !== index),
+                        );
+                        if (selectedImages.length <= 1) {
+                          setIsEditingImages(false);
+                        }
+                      }}
+                      className="absolute top-3 right-3 bg-black/70 hover:bg-destructive text-white rounded-full p-1.5 transition shadow-lg cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Modal แสดงรูปเต็มเมื่อคลิกที่รูปในหน้า Edit All */}
+            {previewFullImage && (
+              <div
+                onClick={() => setPreviewFullImage(null)}
+                className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150 cursor-zoom-out"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewFullImage(null)}
+                  className="absolute top-4 right-4 bg-white/15 hover:bg-white/30 text-white rounded-full p-2 transition cursor-pointer"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                <img
+                  src={previewFullImage}
+                  alt="Full screen preview"
+                  onClick={(e) => e.stopPropagation()}
+                  className="max-w-full max-h-[85dvh] object-contain rounded-xl shadow-2xl cursor-default"
+                />
+              </div>
+            )}
           </div>
         )}
 

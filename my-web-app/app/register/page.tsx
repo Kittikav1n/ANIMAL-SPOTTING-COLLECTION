@@ -7,6 +7,7 @@ import Link from "next/link";
 import registerMap from "./register-map.webp";
 import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import {
     InputGroup,
     InputGroupAddon,
@@ -26,6 +27,7 @@ function MapPanel() {
 }
 
 export default function Register() {
+    const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [avatar, setAvatar] = useState<string>();
@@ -121,6 +123,7 @@ export default function Register() {
             }
 
             setIsSuccess(true);
+            router.push("/login");
             setMessage("Registration successful. You can now sign in.");
         } catch (error) {
             if (isAxiosError(error) && error.response) {
