@@ -322,14 +322,13 @@ function CollectionContent() {
       scrollTop: gridScrollRef.current?.scrollTop ?? 0,
     };
     setSelectedSpotId(spotId);
-  }
+}
 
-  const selectedSpot =
-    authStatus === "member"
-      ? spots?.find((spot) => spot.id === selectedSpotId)
-      : undefined;
+const selectedSpot = authStatus === "member"
+    ? spots?.find((spot) => spot.id === selectedSpotId)
+    : undefined;
 
-  const profileSummary = {
+const profileSummary = {
     avatar: profile?.avatar ?? "",
     name: profile?.username ?? "FirstName LastName",
     email: profile?.email ?? "name@example.com",
