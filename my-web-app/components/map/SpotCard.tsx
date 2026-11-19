@@ -5,11 +5,11 @@ import { X, ChevronDown, MapPin } from "lucide-react";
 import AnimalIcon from "@/components/spotModal/AnimalIcon";
 
 export interface SpotCardData {
-  id?: string;
+  id?: string | number;
   title: string;
   address?: string;
   description: string;
-  category: string[];
+  category: string | string[];
   pinName?: string;
   images: string[];
   author: {
@@ -79,21 +79,31 @@ export default function SpotCard({
 
         {/* Right: Animal Badge Tags */}
         {categories.length > 0 && (
-          <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
-            {categories.map((animalName) => {
-                const key = animalName.trim().toLowerCase();
-                const pin = animalPinMap?.[key] || "ph:paw-print-fill";
+          <div className="flex items-center justify-end gap-1.5 min-w-0 shrink-0">
+            {categories.slice(0, 2).map((animalName) => {
+              const key = animalName.trim().toLowerCase();
+              const pin =
                 animalPinMap?.[key] || data.pinName || "ph:paw-print-fill";
               return (
                 <span
                   key={animalName}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide"
+                  title={animalName}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide max-w-[95px]"
                 >
-                  <AnimalIcon pinName={pin} className="size-3.5" />
-                  {animalName}
+                  <AnimalIcon pinName={pin} className="size-3.5 shrink-0" />
+                  <span className="truncate">{animalName}</span>
                 </span>
               );
             })}
+
+            {categories.length > 2 && (
+              <span
+                title={categories.slice(2).join(", ")}
+                className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold shrink-0"
+              >
+                +{categories.length - 2}
+              </span>
+            )}
           </div>
         )}
       </div>
