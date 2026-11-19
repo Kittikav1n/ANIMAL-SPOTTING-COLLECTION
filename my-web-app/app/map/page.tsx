@@ -369,10 +369,10 @@ export default function Home() {
           ...rawCreated,
           photos: uploadedPhotoUrls,
           animals: newSpotData.animals,
+          user: rawCreated.user,
         },
         animalPinMap,
       );
-      console.log("create spot ", createdSpot);
       setSpots((prev) => [{ ...createdSpot, pinName }, ...prev]);
       setSelectedSpot({ ...createdSpot, pinName });
       setShowSpotCard(true);
