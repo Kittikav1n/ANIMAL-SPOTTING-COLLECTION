@@ -5,7 +5,8 @@ import Link from "next/link";
 import axios, { isAxiosError } from "axios";
 import axiosInstance from "@/utils/axiosInstance";
 import GuestProfileContent from "@/components/auth/GuestProfileContent";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowLeft, User, Mail, Lock, Pencil, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,15 +34,18 @@ const MapComponent = dynamic(
 );
 
 export default function ProfilePage() {
+    const { user } = useAuth();
+    return <ProfileContent key={user?.userID ?? "guest"} />;
+}
+
+function ProfileContent() {
+    const { user, isLoading, setUser, logout } = useAuth();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [authStatus, setAuthStatus] = useState<
-        "checking" | "guest" | "member" | "error"
-    >("checking");
-
-    const [sessionCheck, setSessionCheck] = useState(0);
-    const [savedProfile, setSavedProfile] =
-        useState<Profile>(DEFAULT_PROFILE);
+    const authStatus = isLoading ? "checking" : user ? "member" : "guest";
+    const savedProfile: Profile = user
+        ? { username: user.username, email: user.email, avatar: user.profileImage ?? "" }
+        : DEFAULT_PROFILE;
     const [draft, setDraft] = useState<Profile | null>(null);
     const [editing, setEditing] = useState<Field | null>(null);
     const [feedback, setFeedback] = useState<Feedback>(null);
@@ -54,55 +58,6 @@ export default function ProfilePage() {
     const profile = draft ?? savedProfile;
     const hasChanges = profile.username !== savedProfile.username || profile.email !== savedProfile.email || profile.avatar !== savedProfile.avatar;
 
-    useEffect(() => {
-        const controller = new AbortController();
-
-        async function checkSession() {
-            try {
-                const response = await axiosInstance.get(
-                    "/api/auth/me",
-                    {
-                        withCredentials: true,
-                        signal: controller.signal,
-                    },
-                );
-
-                if (controller.signal.aborted) return;
-
-                const result = response.data;
-
-                if (result.success !== true || !result.data?.userID) {
-                    throw new Error("Invalid session response");
-                }
-
-                if (!controller.signal.aborted) {
-                    setSavedProfile({
-                        username: result.data.username,
-                        email: result.data.email,
-                        avatar: result.data.profileImage ?? "",
-                    });
-
-                    setDraft(null);
-                    setPendingPhoto(null);
-                    setAuthStatus("member");
-                }
-            } catch (error) {
-                if (!controller.signal.aborted) {
-                    setAuthStatus(
-                        isAxiosError(error) && error.response?.status === 401
-                            ? "guest"
-                            : "error",
-                    );
-                }
-            }
-        }
-
-        void checkSession();
-
-        return () => controller.abort();
-    }, [sessionCheck]);
-
-
     async function handleLogout() {
         if (isLoggingOut || isSaving || readingPhoto) return;
 
@@ -110,24 +65,12 @@ export default function ProfilePage() {
         setFeedback(null);
 
         try {
-            const response = await axiosInstance.post(
-                "/api/auth/logout",
-                undefined,
-                { withCredentials: true },
-            );
-
-            const result = response.data;
-
-            if (result.success !== true) {
-                throw new Error("Invalid logout response");
-            }
+            await logout();
 
             setDraft(null);
             setPendingPhoto(null);
-            setSavedProfile(DEFAULT_PROFILE);
             setEditing(null);
             setErrors({});
-            setAuthStatus("guest");
         } catch {
             setFeedback({
                 kind: "error",
@@ -187,7 +130,8 @@ export default function ProfilePage() {
 
     async function saveChanges(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        if (readingPhoto || isSaving || isLoggingOut || !hasChanges) return;
+        if (!user || readingPhoto || isSaving || isLoggingOut || !hasChanges) return;
+        const ownerID = user.userID;
         const next = { ...profile, username: profile.username.trim(), email: profile.email.trim().toLowerCase() };
         const nextErrors: Partial<Record<Field, string>> = {};
         if (next.username.length < 1 || next.username.length > 50) nextErrors.username = "Enter a username with 1–50 characters.";
@@ -233,15 +177,11 @@ export default function ProfilePage() {
                 { withCredentials: true },
             );
             const result = response.data;
-            if (result.success !== true || !result.data?.userID) {
+            if (result.success !== true || result.data?.userID !== ownerID) {
                 throw new Error("Invalid profile response");
             }
 
-            setSavedProfile({
-                username: result.data.username,
-                email: result.data.email,
-                avatar: result.data.profileImage ?? "",
-            });
+            setUser((current) => current?.userID === ownerID ? result.data : current);
             setDraft(null);
             setPendingPhoto(null);
             setEditing(null);
@@ -250,8 +190,7 @@ export default function ProfilePage() {
             if (isAxiosError(error) && error.response?.status === 401) {
                 setDraft(null);
                 setPendingPhoto(null);
-                setSavedProfile(DEFAULT_PROFILE);
-                setAuthStatus("guest");
+                setUser((current) => current?.userID === ownerID ? null : current);
             } else {
                 setFeedback({
                     kind: "error",
@@ -287,23 +226,6 @@ export default function ProfilePage() {
                         <p role="status" className="mt-6 text-center text-sm text-[#7A817D]">
                             Checking your account...
                         </p>
-                    )}
-                    {authStatus === "error" && (
-                        <div className="mt-6 text-center">
-                            <p role="alert" className="text-sm text-[#AE3C32]">
-                                Cannot connect to the server.
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setAuthStatus("checking");
-                                    setSessionCheck((current) => current + 1);
-                                }}
-                                className="mt-3 min-h-11 cursor-pointer rounded-md border border-[#526E4E] px-5 text-sm text-[#526E4E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#526E4E]"
-                            >
-                                Try again
-                            </button>
-                        </div>
                     )}
                     {authStatus === "guest" && <GuestProfileContent />}
                     {authStatus === "member" && (
