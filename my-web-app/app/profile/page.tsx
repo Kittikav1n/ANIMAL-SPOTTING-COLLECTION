@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowLeft, User, Mail, Lock, Pencil, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ChangePassword from "./changPassword";
 import {
     InputGroup,
     InputGroupAddon,
@@ -42,7 +43,10 @@ function ProfileContent() {
     const { user, isLoading, setUser, logout } = useAuth();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [view, setView] = useState<"profile" | "password">("profile");
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
     const authStatus = isLoading ? "checking" : user ? "member" : "guest";
+    const isPasswordView = authStatus === "member" && view === "password";
     const savedProfile: Profile = user
         ? { username: user.username, email: user.email, avatar: user.profileImage ?? "" }
         : DEFAULT_PROFILE;
@@ -59,7 +63,7 @@ function ProfileContent() {
     const hasChanges = profile.username !== savedProfile.username || profile.email !== savedProfile.email || profile.avatar !== savedProfile.avatar;
 
     async function handleLogout() {
-        if (isLoggingOut || isSaving || readingPhoto) return;
+        if (isLoggingOut || isSaving || readingPhoto || isChangingPassword) return;
 
         setIsLoggingOut(true);
         setFeedback(null);
@@ -79,6 +83,25 @@ function ProfileContent() {
         } finally {
             setIsLoggingOut(false);
         }
+    }
+
+    function openPasswordForm() {
+        if (isChangingPassword || isSaving || isLoggingOut || readingPhoto) return;
+        setFeedback(null);
+        setView("password");
+        requestAnimationFrame(() => document.getElementById("profile-title")?.focus());
+    }
+
+    function closePasswordForm() {
+        if (isChangingPassword) return;
+        setView("profile");
+        requestAnimationFrame(() => document.getElementById("edit-profile-password")?.focus());
+    }
+
+    function passwordSaved() {
+        setView("profile");
+        setFeedback({ kind: "success", text: "Password changed successfully." });
+        requestAnimationFrame(() => document.getElementById("edit-profile-password")?.focus());
     }
 
     function updateField(field: Field, value: string) {
@@ -130,7 +153,7 @@ function ProfileContent() {
 
     async function saveChanges(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        if (!user || readingPhoto || isSaving || isLoggingOut || !hasChanges) return;
+        if (!user || readingPhoto || isSaving || isLoggingOut || isChangingPassword || !hasChanges) return;
         const ownerID = user.userID;
         const next = { ...profile, username: profile.username.trim(), email: profile.email.trim().toLowerCase() };
         const nextErrors: Partial<Record<Field, string>> = {};
@@ -213,12 +236,19 @@ function ProfileContent() {
             <section aria-labelledby="profile-title" className="relative z-20 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-24 sm:px-6 sm:py-8 lg:px-10">
                 <div className={`mx-auto my-auto w-full shrink-0 rounded-lg bg-white shadow-xl ${authStatus === "guest" ? "max-w-[560px] px-4 py-5 sm:px-10 lg:px-14" : "max-w-[720px] px-4 py-4 sm:px-10 sm:py-7 lg:flex lg:min-h-[620px] lg:flex-col lg:justify-start lg:px-14 lg:py-5"}`}>
                     <header className={`relative ${authStatus === "guest" ? "grid grid-cols-[44px_minmax(0,1fr)_44px] items-center sm:grid-cols-[80px_minmax(0,1fr)_80px]" : "max-sm:grid max-sm:grid-cols-[44px_minmax(0,1fr)_44px] max-sm:items-center"}`}>
-                        <Link href="/map" aria-label="Back to map" className={`inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] ${authStatus === "guest" ? "justify-center sm:justify-start" : "max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base"}`}>
-                            <ArrowLeft aria-hidden="true" className="size-5" />
-                            <span className="hidden sm:inline">back</span>
-                        </Link>
-                        <h1 id="profile-title" className={`text-center font-bold tracking-tight leading-tight ${authStatus === "guest" ? "text-xl" : "text-[22px] sm:text-4xl lg:px-40 lg:text-[24px]"}`}>
-                            {authStatus === "member" ? "Profile Settings" : "Profile"}
+                        {isPasswordView ? (
+                            <button type="button" onClick={closePasswordForm} disabled={isChangingPassword} aria-label="Back to Profile Settings" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] disabled:opacity-60 max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base">
+                                <ArrowLeft aria-hidden="true" className="size-5" />
+                                <span className="hidden sm:inline">back</span>
+                            </button>
+                        ) : (
+                            <Link href="/map" aria-label="Back to map" className={`inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] ${authStatus === "guest" ? "justify-center sm:justify-start" : "max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base"}`}>
+                                <ArrowLeft aria-hidden="true" className="size-5" />
+                                <span className="hidden sm:inline">back</span>
+                            </Link>
+                        )}
+                        <h1 id="profile-title" tabIndex={-1} className={`text-center font-bold tracking-tight leading-tight outline-none ${authStatus === "guest" ? "text-xl" : "text-[22px] sm:text-4xl lg:px-40 lg:text-[24px]"}`}>
+                            {isPasswordView ? "Change Password" : authStatus === "member" ? "Profile Settings" : "Profile"}
                         </h1>
                         <div className={`mx-auto h-px bg-[#DCDCE2] ${authStatus === "guest" ? "col-span-3 mt-3 w-52 max-w-full" : "mt-2 w-32 max-sm:col-span-3 sm:mt-5 sm:w-52 lg:mt-3"}`} />
                     </header>
@@ -228,7 +258,10 @@ function ProfileContent() {
                         </p>
                     )}
                     {authStatus === "guest" && <GuestProfileContent />}
-                    {authStatus === "member" && (
+                    {isPasswordView && (
+                        <ChangePassword avatar={profile.avatar} onBack={closePasswordForm} onSuccess={passwordSaved} onBusyChange={setIsChangingPassword} />
+                    )}
+                    {authStatus === "member" && !isPasswordView && (
                         <form noValidate onSubmit={saveChanges} aria-busy={readingPhoto || isLoggingOut || isSaving} className="mx-auto mt-3 flex w-full max-w-[470px] flex-col items-center sm:mt-6 lg:mt-4">
                             <div className="relative">
                                 <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] sm:size-40 lg:size-24">
@@ -268,7 +301,7 @@ function ProfileContent() {
                                     <InputGroup className="h-11 rounded-md border-[#CBD5E1] bg-white sm:h-14 lg:h-11">
                                         <InputGroupAddon className="pl-3"><Lock aria-hidden="true" className="size-5 text-[#92999E]" /></InputGroupAddon>
                                         <InputGroupInput id="profile-password" type="password" autoComplete="off" readOnly value="" placeholder="••••••••••••" className="h-full text-base placeholder:text-[#8A9BAF] md:text-base" />
-                                        <InputGroupAddon align="inline-end"><InputGroupButton size="icon-sm" aria-label="Change password" onClick={() => setFeedback({ kind: "info", text: "Password changes are not available until account services are connected." })} className="size-10 text-[#858B89]"><Pencil aria-hidden="true" className="size-5" /></InputGroupButton></InputGroupAddon>
+                                        <InputGroupAddon align="inline-end"><InputGroupButton id="edit-profile-password" size="icon-sm" aria-label="Change password" onClick={openPasswordForm} disabled={isSaving || isLoggingOut || readingPhoto || isChangingPassword} className="size-10 text-[#858B89]"><Pencil aria-hidden="true" className="size-5" /></InputGroupButton></InputGroupAddon>
                                     </InputGroup>
                                 </div>
                             </div>
