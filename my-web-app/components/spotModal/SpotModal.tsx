@@ -329,7 +329,7 @@ export default function SpotModal({
                 </div>
 
                 {/* Spot Description */}
-                <div className="w-full min-h-[250px] md:min-h-full rounded-xl border border-border p-3 overflow-y-auto custom-scrollbar bg-card focus-within:ring-2 focus-within:ring-secondary flex flex-col">
+                <div className="w-full h-[140px] md:h-[160px] shrink-0 rounded-xl border border-border p-3 overflow-hidden bg-card focus-within:ring-2 focus-within:ring-secondary flex flex-col">
                   <Textarea
                     placeholder="Describe or share something about your experience"
                     className="w-full flex-1 resize-none border-0 bg-transparent p-1 focus-visible:ring-0 shadow-none focus-visible:outline-none custom-scrollbar"

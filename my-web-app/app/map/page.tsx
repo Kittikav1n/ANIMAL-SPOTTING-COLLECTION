@@ -54,7 +54,7 @@ export default function Home() {
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [activePhotoList, setActivePhotoList] = useState<string[]>([]);
   const [initialPhotoIndex, setInitialPhotoIndex] = useState(0);
-
+  console.log("User: ", user);
   const [zoomTrigger, setZoomTrigger] = useState<{
     type: "in" | "out";
     timestamp: number;
@@ -377,7 +377,7 @@ export default function Home() {
       const createdSpot = mapRawSpotToPinData(
         {
           ...rawCreated,
-          photos: uploadedPhotoUrls,
+          photos: rawCreated.photos?.length ? rawCreated.photos : uploadedPhotoUrls,
           animals: newSpotData.animals,
           user: rawCreated.user,
         },
