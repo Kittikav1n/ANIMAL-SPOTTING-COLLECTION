@@ -8,6 +8,7 @@ import registerMap from "./register-map.webp";
 import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
     InputGroup,
     InputGroupAddon,
@@ -123,8 +124,9 @@ export default function Register() {
             }
 
             setIsSuccess(true);
+            toast.success("Registration successful. You can now login.")
+            setMessage("Registration successful. You can now login.");
             router.push("/login");
-            setMessage("Registration successful. You can now sign in.");
         } catch (error) {
             if (isAxiosError(error) && error.response) {
                 setMessage(
