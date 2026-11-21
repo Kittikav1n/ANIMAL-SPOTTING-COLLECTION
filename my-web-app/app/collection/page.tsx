@@ -105,7 +105,7 @@ function SpotPost({
   onDelete: (spot: SpotPinData) => void;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
-  const photos = spot.images; 
+  const photos = spot.images;
   const safePhotoIndex = photoIndex < photos.length ? photoIndex : 0;
   function changePhoto(direction: number) {
     setPhotoIndex(
@@ -120,7 +120,7 @@ function SpotPost({
       tabIndex={-1}
       className="space-y-3 focus:outline-none"
     >
-    <header className="flex items-center gap-6 sm:gap-8">
+      <header className="flex items-center gap-6 sm:gap-8">
         <span
           aria-hidden="true"
           className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] text-[#526E4E] sm:size-12"
@@ -224,17 +224,23 @@ function SpotPost({
 
 export default function Collection() {
   const { user } = useAuth();
-  return <CollectionContent key={user?.userID ?? "guest"} />;
+  return <CollectionContent key={user?.userId ?? "guest"} />;
 }
 
 function CollectionContent() {
   const { user, isLoading, setUser } = useAuth();
   const authStatus = isLoading ? "checking" : user ? "member" : "guest";
-  const profile = useMemo<CollectionProfile | null>(() => user ? {
-    username: user.username,
-    email: user.email,
-    avatar: user.profileImage ?? "",
-  } : null, [user]);
+  const profile = useMemo<CollectionProfile | null>(
+    () =>
+      user
+        ? {
+            username: user.username,
+            email: user.email,
+            avatar: user.profileImage ?? "",
+          }
+        : null,
+    [user],
+  );
   const [spots, setSpots] = useState<SpotPinData[] | null>(null);
   const [collectionError, setCollectionError] = useState<string | null>(null);
   const [collectionCheck, setCollectionCheck] = useState(0);
@@ -337,8 +343,6 @@ function CollectionContent() {
   };
 
   type UpdateSpotPayload = {
-    lat: number;
-    lng: number;
     address: string;
     title: string;
     description: string;
@@ -358,31 +362,47 @@ function CollectionContent() {
         : editingSpot.title;
 
     try {
-      // รูปใหม่มีไฟล์เพิ่มเข้ามา -> ขอ Presigned URL อัปโหลดขึ้น R2
+      // 1. ทยอยขอ Presigned URL และอัปโหลดรูปใหม่ขึ้น R2 ทีละ 4 รูป
       const newlyUploadedUrls: string[] = [];
+      const batchSize = 4;
 
-      for (const file of updatedData.images) {
-        const presignRes = await axiosInstance.post(
-          "/api/spots/presigned-url",
-          {
-            fileName: file.name,
-            fileType: file.type,
-          },
+      for (let i = 0; i < updatedData.images.length; i += batchSize) {
+        const batch = updatedData.images.slice(i, i + batchSize);
+
+        const batchUrls = await Promise.all(
+          batch.map(async (file) => {
+            const presignRes = await axiosInstance.post(
+              "/api/spots/presigned-url",
+              {
+                fileSize: file.size,
+                fileType: file.type,
+              },
+            );
+
+            const data = presignRes.data?.data;
+            if (!data?.uploadUrl || !data?.publicUrl) {
+              throw new Error("ไม่ได้รับ URL สำหรับอัปโหลดจากเซิร์ฟเวอร์");
+            }
+
+            const uploadRes = await fetch(data.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+              },
+              body: file,
+            });
+
+            if (!uploadRes.ok) {
+              const errText = await uploadRes.text();
+              console.error("R2 Upload Failed:", uploadRes.status, errText);
+              throw new Error(
+                `Failed to upload image to R2 (${uploadRes.status})`,
+              );
+            }
+            return data.publicUrl as string;
+          }),
         );
-
-        const { uploadUrl, publicUrl } = presignRes.data.data;
-
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": file.type,
-          },
-          body: file,
-        });
-        if (!uploadRes.ok) {
-          throw new Error(`Failed to upload image: ${file.name}`);
-        }
-        newlyUploadedUrls.push(publicUrl);
+        newlyUploadedUrls.push(...batchUrls);
       }
 
       // รวมรูปเก่าที่ผู้ใช้ไม่ได้กดลบ + รูปใหม่ที่เพิ่งอัปโหลดขึ้น R2
@@ -397,47 +417,43 @@ function CollectionContent() {
         title: finalTitle,
         description: updatedData.description,
         address: updatedData.address,
-        lat: updatedData.lat,
-        lng: updatedData.lng,
-        photoUrls: finalPhotoUrls, 
+        photoUrls: finalPhotoUrls,
         animals: mappedAnimals,
         date: updatedData.date.toISOString(),
       });
 
       setSpots((prev) => {
-        return prev ?
-        prev.map((spot) => {
-          if (spot.id !== editingSpot.id) return spot;
-          return {
-            ...spot,
-            title: finalTitle,
-            description: updatedData.description,
-            address: updatedData.address,
-            lat: updatedData.lat,
-            lng: updatedData.lng,
-            images: finalPhotoUrls,
-            photoUrl: finalPhotoUrls[0] || "",
-            animals: updatedData.animals,
-            category: updatedData.animals.map((a) => a.name.toLowerCase()),
-            date: updatedData.date.toISOString(),
-          };
-        })
-        : null;
+        return prev
+          ? prev.map((spot) => {
+              if (spot.id !== editingSpot.id) return spot;
+              return {
+                ...spot,
+                title: finalTitle,
+                description: updatedData.description,
+                address: updatedData.address,
+                images: finalPhotoUrls,
+                photoUrl: finalPhotoUrls[0] || "",
+                animals: updatedData.animals,
+                category: updatedData.animals.map((a) => a.name.toLowerCase()),
+                date: updatedData.date.toISOString(),
+              };
+            })
+          : null;
       });
 
       toast.success(response.data?.message || "Spot updated successfully!");
       setEditingSpot(null);
     } catch (err) {
-      console.error("Failed to update spot:", err);
       if (isAxiosError(err) && err.response?.status === 401) {
-        setUser((current) => current?.userID === user?.userID ? null : current);
+        setUser(null);
+        toast.error("Session expired. Please log in again.");
+        throw err;
       }
       if (isAxiosError(err) && err.response?.data?.message) {
         toast.error(err.response.data.message);
       } else {
         toast.error("Unable to update spot. Please check your connection.");
       }
-
       throw err; // โยน error กลับไปให้ SpotModal รู้ว่าบันทึกไม่สำเร็จปุ่ม Save จะได้หยุดหมุน
     }
   }
@@ -459,7 +475,9 @@ function CollectionContent() {
       setDeletingSpot(null);
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 401) {
-        setUser((current) => current?.userID === user?.userID ? null : current);
+        setUser((current) =>
+          current?.userId === user?.userId ? null : current,
+        );
       }
       toast.error("Failed to delete spot. Please try again.");
     } finally {

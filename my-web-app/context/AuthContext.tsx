@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import axiosInstance from "@/utils/axiosInstance";
 
 export interface AuthUser {
-  userID: number;
+  userId: number;
   username: string;
   email: string;
   profileImage: string | null;

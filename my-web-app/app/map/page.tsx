@@ -39,7 +39,7 @@ interface ExtendedAnimalOption extends AnimalCategoryOption {
 
 export default function Home() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [spots, setSpots] = useState<SpotPinData[]>([]);
   const [showSpotCard, setShowSpotCard] = useState(false);
@@ -107,9 +107,7 @@ export default function Home() {
     const rawUser = raw.user || {};
     const isCurrentUser =
       user &&
-      (rawUser.userId === user.userId ||
-        rawUser.id === user.id ||
-        rawUser.username === user.username);
+      (rawUser.userId === user.userId || rawUser.username === user.username);
 
     const resolvedAvatar =
       rawUser.avatar ||
@@ -143,7 +141,9 @@ export default function Home() {
           rawUser.username ||
           rawUser.name ||
           raw.author?.name ||
-          (isCurrentUser ? (user as any)?.username || (user as any)?.name : "") ||
+          (isCurrentUser
+            ? (user as any)?.username || (user as any)?.name
+            : "") ||
           "Spotter",
         avatar: resolvedAvatar,
       },
@@ -209,7 +209,7 @@ export default function Home() {
   // รายการหมวดหมู่สัตว์ดึงจาก Backend เท่านั้น
   const dynamicFilterChips: AnimalChipItem[] = useMemo(() => {
     const topAnimals: AnimalChipItem[] = backendAnimals
-      .slice(3, 8)
+      .slice(0, 5)
       .map((a: any) => ({
         id: a.name,
         label: a.name.toUpperCase(),
@@ -342,8 +342,8 @@ export default function Home() {
     const finalTitle = newSpotData.title
       ? newSpotData.title
       : newSpotData.animals.length > 0
-      ? `${newSpotData.animals[0].name} Spot`
-      : "New Animal Spot";
+        ? `${newSpotData.animals[0].name} Spot`
+        : "New Animal Spot";
 
     const pinName =
       newSpotData.animals.length > 0
@@ -352,35 +352,48 @@ export default function Home() {
         : undefined;
 
     try {
-      // 1. ขอ Presigned URL และอัปโหลดรูปแต่ละไฟล์ขึ้น Cloudflare R2
+      // ทยอยขอ Presigned URL และอัปโหลดรูปขึ้น R2 ทีละ 4 รูป
       const uploadedPhotoUrls: string[] = [];
+      const batchSize = 4;
 
-      for (const file of newSpotData.images) {
-        const presignRes = await axiosInstance.post(
-          "/api/spots/presigned-url",
-          {
-            fileName: file.name,
-            fileType: file.type,
-          },
+      for (let i = 0; i < newSpotData.images.length; i += batchSize) {
+        const batch = newSpotData.images.slice(i, i + batchSize);
+
+        const batchUrls = await Promise.all(
+          batch.map(async (file) => {
+            const presignRes = await axiosInstance.post(
+              "/api/spots/presigned-url",
+              {
+                fileSize: file.size,
+                fileType: file.type,
+              },
+            );
+
+            const data = presignRes.data?.data;
+            if (!data?.uploadUrl || !data?.publicUrl) {
+              throw new Error("ไม่ได้รับ URL สำหรับอัปโหลดจากเซิร์ฟเวอร์");
+            }
+
+            const uploadRes = await fetch(data.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+              },
+              body: file,
+            });
+
+            if (!uploadRes.ok) {
+              const errText = await uploadRes.text();
+              console.error("R2 Upload Failed:", uploadRes.status, errText);
+              throw new Error(
+                `Failed to upload image to R2 (${uploadRes.status})`,
+              );
+            }
+            return data.publicUrl as string;
+          }),
         );
 
-        const { uploadUrl, publicUrl } = presignRes.data.data;
-
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": file.type,
-          },
-          body: file,
-        });
-
-        if (!uploadRes.ok) {
-          const errText = await uploadRes.text();
-          console.error("R2 Upload Failed:", uploadRes.status, errText);
-          throw new Error(`Failed to upload image to R2 (${uploadRes.status})`);
-        }
-
-        uploadedPhotoUrls.push(publicUrl);
+        uploadedPhotoUrls.push(...batchUrls);
       }
 
       // 2. เตรียมอาเรย์ของ animalId สำหรับส่งให้ Backend
@@ -403,7 +416,7 @@ export default function Home() {
         lng: newSpotData.lng,
         photoUrls: uploadedPhotoUrls,
         animals: mappedAnimals,
-        date: new Date().toISOString(),
+        date: newSpotData.date ? newSpotData.date.toISOString() : null,
       });
 
       const rawCreated = response.data?.data || response.data;
@@ -423,11 +436,19 @@ export default function Home() {
       setShowSpotCard(true);
       toast.success(response.data?.message || "Spot created successfully!");
     } catch (err) {
-      console.error("Failed to create spot:", err);
+
+      if (isAxiosError(err) && err.response?.status === 401) {
+        setUser(null);
+        toast.error("Session expired. Please log in again.");
+        throw err;
+      }
       if (isAxiosError(err) && err.response?.data?.message) {
         toast.error(err.response.data.message);
-      } else if (err instanceof Error && err.message.includes("R2")) {
-        toast.error("Image upload to Cloudflare R2 failed. Check CORS/R2 settings.");
+      } 
+      else if (err instanceof Error && err.message.includes("R2")) {
+        toast.error(
+          "Image upload to Cloudflare R2 failed. Check CORS/R2 settings.",
+        );
       } else {
         toast.error("Unable to save spot. Please check your connection.");
       }

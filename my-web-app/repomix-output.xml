@@ -48,6 +48,7 @@ app/
   map/
     page.tsx
   profile/
+    changPassword.tsx
     page.tsx
   register/
     page.tsx
@@ -106,6 +107,9 @@ components/
   MapComponent.tsx
 context/
   AuthContext.tsx
+.github/
+  workflows/
+    playwright.yml
 hooks/
   use-mobile.ts
 lib/
@@ -116,6 +120,8 @@ public/
   next.svg
   vercel.svg
   window.svg
+tests/
+  example.spec.ts
 types/
   spot.ts
 utils/
@@ -127,6 +133,7 @@ eslint.config.mjs
 .gitignore
 next.config.ts
 package.json
+playwright.config.ts
 postcss.config.mjs
 README.md
 tsconfig.json
@@ -243,7 +250,7 @@ function SpotPost({
   onDelete: (spot: SpotPinData) => void;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
-  const photos = spot.images; 
+  const photos = spot.images;
   const safePhotoIndex = photoIndex < photos.length ? photoIndex : 0;
   function changePhoto(direction: number) {
     setPhotoIndex(
@@ -258,7 +265,7 @@ function SpotPost({
       tabIndex={-1}
       className="space-y-3 focus:outline-none"
     >
-    <header className="flex items-center gap-6 sm:gap-8">
+      <header className="flex items-center gap-6 sm:gap-8">
         <span
           aria-hidden="true"
           className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] text-[#526E4E] sm:size-12"
@@ -362,17 +369,23 @@ function SpotPost({
 
 export default function Collection() {
   const { user } = useAuth();
-  return <CollectionContent key={user?.userID ?? "guest"} />;
+  return <CollectionContent key={user?.userId ?? "guest"} />;
 }
 
 function CollectionContent() {
   const { user, isLoading, setUser } = useAuth();
   const authStatus = isLoading ? "checking" : user ? "member" : "guest";
-  const profile = useMemo<CollectionProfile | null>(() => user ? {
-    username: user.username,
-    email: user.email,
-    avatar: user.profileImage ?? "",
-  } : null, [user]);
+  const profile = useMemo<CollectionProfile | null>(
+    () =>
+      user
+        ? {
+            username: user.username,
+            email: user.email,
+            avatar: user.profileImage ?? "",
+          }
+        : null,
+    [user],
+  );
   const [spots, setSpots] = useState<SpotPinData[] | null>(null);
   const [collectionError, setCollectionError] = useState<string | null>(null);
   const [collectionCheck, setCollectionCheck] = useState(0);
@@ -475,8 +488,6 @@ function CollectionContent() {
   };
 
   type UpdateSpotPayload = {
-    lat: number;
-    lng: number;
     address: string;
     title: string;
     description: string;
@@ -496,31 +507,47 @@ function CollectionContent() {
         : editingSpot.title;
 
     try {
-      // รูปใหม่มีไฟล์เพิ่มเข้ามา -> ขอ Presigned URL อัปโหลดขึ้น R2
+      // 1. ทยอยขอ Presigned URL และอัปโหลดรูปใหม่ขึ้น R2 ทีละ 4 รูป
       const newlyUploadedUrls: string[] = [];
+      const batchSize = 4;
 
-      for (const file of updatedData.images) {
-        const presignRes = await axiosInstance.post(
-          "/api/spots/presigned-url",
-          {
-            fileName: file.name,
-            fileType: file.type,
-          },
+      for (let i = 0; i < updatedData.images.length; i += batchSize) {
+        const batch = updatedData.images.slice(i, i + batchSize);
+
+        const batchUrls = await Promise.all(
+          batch.map(async (file) => {
+            const presignRes = await axiosInstance.post(
+              "/api/spots/presigned-url",
+              {
+                fileSize: file.size,
+                fileType: file.type,
+              },
+            );
+
+            const data = presignRes.data?.data;
+            if (!data?.uploadUrl || !data?.publicUrl) {
+              throw new Error("ไม่ได้รับ URL สำหรับอัปโหลดจากเซิร์ฟเวอร์");
+            }
+
+            const uploadRes = await fetch(data.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+              },
+              body: file,
+            });
+
+            if (!uploadRes.ok) {
+              const errText = await uploadRes.text();
+              console.error("R2 Upload Failed:", uploadRes.status, errText);
+              throw new Error(
+                `Failed to upload image to R2 (${uploadRes.status})`,
+              );
+            }
+            return data.publicUrl as string;
+          }),
         );
-
-        const { uploadUrl, publicUrl } = presignRes.data.data;
-
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": file.type,
-          },
-          body: file,
-        });
-        if (!uploadRes.ok) {
-          throw new Error(`Failed to upload image: ${file.name}`);
-        }
-        newlyUploadedUrls.push(publicUrl);
+        newlyUploadedUrls.push(...batchUrls);
       }
 
       // รวมรูปเก่าที่ผู้ใช้ไม่ได้กดลบ + รูปใหม่ที่เพิ่งอัปโหลดขึ้น R2
@@ -535,47 +562,43 @@ function CollectionContent() {
         title: finalTitle,
         description: updatedData.description,
         address: updatedData.address,
-        lat: updatedData.lat,
-        lng: updatedData.lng,
-        photoUrls: finalPhotoUrls, 
+        photoUrls: finalPhotoUrls,
         animals: mappedAnimals,
         date: updatedData.date.toISOString(),
       });
 
       setSpots((prev) => {
-        return prev ?
-        prev.map((spot) => {
-          if (spot.id !== editingSpot.id) return spot;
-          return {
-            ...spot,
-            title: finalTitle,
-            description: updatedData.description,
-            address: updatedData.address,
-            lat: updatedData.lat,
-            lng: updatedData.lng,
-            images: finalPhotoUrls,
-            photoUrl: finalPhotoUrls[0] || "",
-            animals: updatedData.animals,
-            category: updatedData.animals.map((a) => a.name.toLowerCase()),
-            date: updatedData.date.toISOString(),
-          };
-        })
-        : null;
+        return prev
+          ? prev.map((spot) => {
+              if (spot.id !== editingSpot.id) return spot;
+              return {
+                ...spot,
+                title: finalTitle,
+                description: updatedData.description,
+                address: updatedData.address,
+                images: finalPhotoUrls,
+                photoUrl: finalPhotoUrls[0] || "",
+                animals: updatedData.animals,
+                category: updatedData.animals.map((a) => a.name.toLowerCase()),
+                date: updatedData.date.toISOString(),
+              };
+            })
+          : null;
       });
 
       toast.success(response.data?.message || "Spot updated successfully!");
       setEditingSpot(null);
     } catch (err) {
-      console.error("Failed to update spot:", err);
       if (isAxiosError(err) && err.response?.status === 401) {
-        setUser((current) => current?.userID === user?.userID ? null : current);
+        setUser(null);
+        toast.error("Session expired. Please log in again.");
+        throw err;
       }
       if (isAxiosError(err) && err.response?.data?.message) {
         toast.error(err.response.data.message);
       } else {
         toast.error("Unable to update spot. Please check your connection.");
       }
-
       throw err; // โยน error กลับไปให้ SpotModal รู้ว่าบันทึกไม่สำเร็จปุ่ม Save จะได้หยุดหมุน
     }
   }
@@ -597,7 +620,9 @@ function CollectionContent() {
       setDeletingSpot(null);
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 401) {
-        setUser((current) => current?.userID === user?.userID ? null : current);
+        setUser((current) =>
+          current?.userId === user?.userId ? null : current,
+        );
       }
       toast.error("Failed to delete spot. Please try again.");
     } finally {
@@ -775,7 +800,7 @@ function CollectionContent() {
               ) : (
                 <ul
                   aria-label="Spotting photos"
-                  className={`grid w-full gap-px overflow-hidden rounded-sm ${spots.length < 3 ? "grid-cols-2" : "grid-cols-3"}`}
+                  className={`grid w-full grid-cols-2 gap-px overflow-hidden rounded-sm ${spots.length >= 3 ? "sm:grid-cols-3" : ""}`}
                 >
                   {spots.map((spot) => (
                     <li key={spot.id} className="overflow-hidden bg-slate-100">
@@ -791,10 +816,10 @@ function CollectionContent() {
                             src={spot.images[0]}
                             alt={spot.title}
                             loading="lazy"
-                            className="block aspect-[4/3] w-full object-cover"
+                            className="block aspect-square w-full object-cover sm:aspect-[4/3]"
                           />
                         ) : (
-                          <span className="grid aspect-[4/3] w-full place-items-center text-slate-400">
+                          <span className="grid aspect-square w-full place-items-center text-slate-400 sm:aspect-[4/3]">
                             <ImageOff className="size-8" aria-hidden="true" />
                             <span className="sr-only">
                               {spot.title}: No photos
@@ -1130,7 +1155,7 @@ interface ExtendedAnimalOption extends AnimalCategoryOption {
 
 export default function Home() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [spots, setSpots] = useState<SpotPinData[]>([]);
   const [showSpotCard, setShowSpotCard] = useState(false);
@@ -1194,6 +1219,28 @@ export default function Home() {
           .filter(Boolean)
       : [];
 
+    // ดึงข้อมูลผู้โพสต์ (ถ้าตรงกับ user ที่ล็อกอินอยู่ ให้ใช้ข้อมูลจาก AuthContext สำรองหาก Backend ไม่ได้ส่ง avatar มา)
+    const rawUser = raw.user || {};
+    const isCurrentUser =
+      user &&
+      (rawUser.userId === user.userId || rawUser.username === user.username);
+
+    const resolvedAvatar =
+      rawUser.avatar ||
+      rawUser.profileImage ||
+      rawUser.profilePicture ||
+      rawUser.avatarUrl ||
+      rawUser.image ||
+      raw.author?.avatar ||
+      (isCurrentUser
+        ? (user as any)?.avatar ||
+          (user as any)?.profileImage ||
+          (user as any)?.profilePicture ||
+          (user as any)?.avatarUrl ||
+          (user as any)?.image
+        : "") ||
+      "";
+
     return {
       id: String(raw.spotId || raw.id || Date.now()),
       title: raw.title || "Animal Spot",
@@ -1207,9 +1254,14 @@ export default function Home() {
       photoUrl: images[0] || "",
       author: {
         name:
-          raw.user?.username ||
+          rawUser.username ||
+          rawUser.name ||
+          raw.author?.name ||
+          (isCurrentUser
+            ? (user as any)?.username || (user as any)?.name
+            : "") ||
           "Spotter",
-        avatar: raw.user?.avatar || raw.author?.avatar || "",
+        avatar: resolvedAvatar,
       },
     };
   };
@@ -1233,7 +1285,7 @@ export default function Home() {
           }),
         );
 
-        //dictionary for pin
+        // dictionary for pin
         const pinLookup: Record<string, string> = {};
         formattedAnimals.forEach((a) => {
           pinLookup[a.id] = a.pinName || "ph:question";
@@ -1268,12 +1320,12 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   // รายการหมวดหมู่สัตว์ดึงจาก Backend เท่านั้น
   const dynamicFilterChips: AnimalChipItem[] = useMemo(() => {
     const topAnimals: AnimalChipItem[] = backendAnimals
-      .slice(3, 8) // ยอดนิยม order มาให้จาก bn เเล้ว
+      .slice(3, 8)
       .map((a: any) => ({
         id: a.name,
         label: a.name.toUpperCase(),
@@ -1284,17 +1336,18 @@ export default function Home() {
 
   // Map ชื่อสัตว์ -> รหัส pinName จาก Database สำหรับใช้แสดงไอคอนบนหมุดแผนที่
   const animalPinMap = useMemo(() => {
-      const map: Record<string, string> = {};
-      backendAnimals.forEach((a: any) => {
-        const key = String(a.name || a.id || "").trim().toLowerCase();
-        // ดักทั้ง camelCase (pinName) และ snake_case (pin_name) จาก Backend
-        const pin = a.pinName || a.pin_name || a.icon;
-        if (key && pin) {
-          map[key] = pin;
-        }
-      });
-      return map;
-    }, [backendAnimals]);
+    const map: Record<string, string> = {};
+    backendAnimals.forEach((a: any) => {
+      const key = String(a.name || a.id || "")
+        .trim()
+        .toLowerCase();
+      const pin = a.pinName || a.pin_name || a.icon;
+      if (key && pin) {
+        map[key] = pin;
+      }
+    });
+    return map;
+  }, [backendAnimals]);
 
   const filteredSpots = useMemo(() => {
     return spots
@@ -1329,7 +1382,6 @@ export default function Home() {
         return true;
       })
       .map((spot) => {
-        // กรองให้หมุดบนแผนที่แสดงเฉพาะชนิดสัตว์ที่กำลังเลือกใน Filter
         const cats = Array.isArray(spot.category)
           ? spot.category
           : [spot.category];
@@ -1364,7 +1416,7 @@ export default function Home() {
       router.push("/login");
       return;
     }
-    
+
     setAddSpotCoord({ lat, lng, address });
     setIsOpen(true);
   };
@@ -1416,29 +1468,48 @@ export default function Home() {
         : undefined;
 
     try {
-      // 1. ขอ Presigned URL และอัปโหลดรูปแต่ละไฟล์ขึ้น Cloudflare R2
+      // ทยอยขอ Presigned URL และอัปโหลดรูปขึ้น R2 ทีละ 4 รูป
       const uploadedPhotoUrls: string[] = [];
+      const batchSize = 4;
 
-      for (const file of newSpotData.images) {
-        const presignRes = await axiosInstance.post(
-          "/api/spots/presigned-url",
-          {
-            fileName: file.name,
-            fileType: file.type,
-          },
+      for (let i = 0; i < newSpotData.images.length; i += batchSize) {
+        const batch = newSpotData.images.slice(i, i + batchSize);
+
+        const batchUrls = await Promise.all(
+          batch.map(async (file) => {
+            const presignRes = await axiosInstance.post(
+              "/api/spots/presigned-url",
+              {
+                fileSize: file.size,
+                fileType: file.type,
+              },
+            );
+
+            const data = presignRes.data?.data;
+            if (!data?.uploadUrl || !data?.publicUrl) {
+              throw new Error("ไม่ได้รับ URL สำหรับอัปโหลดจากเซิร์ฟเวอร์");
+            }
+
+            const uploadRes = await fetch(data.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+              },
+              body: file,
+            });
+
+            if (!uploadRes.ok) {
+              const errText = await uploadRes.text();
+              console.error("R2 Upload Failed:", uploadRes.status, errText);
+              throw new Error(
+                `Failed to upload image to R2 (${uploadRes.status})`,
+              );
+            }
+            return data.publicUrl as string;
+          }),
         );
 
-        const { uploadUrl, publicUrl } = presignRes.data.data;
-
-        await fetch(uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": file.type,
-          },
-          body: file,
-        });
-
-        uploadedPhotoUrls.push(publicUrl);
+        uploadedPhotoUrls.push(...batchUrls);
       }
 
       // 2. เตรียมอาเรย์ของ animalId สำหรับส่งให้ Backend
@@ -1461,16 +1532,18 @@ export default function Home() {
         lng: newSpotData.lng,
         photoUrls: uploadedPhotoUrls,
         animals: mappedAnimals,
-        date: new Date().toISOString(),
+        date: newSpotData.date ? newSpotData.date.toISOString() : null,
       });
 
       const rawCreated = response.data?.data || response.data;
       const createdSpot = mapRawSpotToPinData(
         {
           ...rawCreated,
-          photos: uploadedPhotoUrls,
+          photos: rawCreated.photos?.length
+            ? rawCreated.photos
+            : uploadedPhotoUrls,
           animals: newSpotData.animals,
-          user: rawCreated.user,
+          user: rawCreated.user || user,
         },
         animalPinMap,
       );
@@ -1479,9 +1552,19 @@ export default function Home() {
       setShowSpotCard(true);
       toast.success(response.data?.message || "Spot created successfully!");
     } catch (err) {
-      console.error("Failed to create spot:", err);
+
+      if (isAxiosError(err) && err.response?.status === 401) {
+        setUser(null);
+        toast.error("Session expired. Please log in again.");
+        throw err;
+      }
       if (isAxiosError(err) && err.response?.data?.message) {
         toast.error(err.response.data.message);
+      } 
+      else if (err instanceof Error && err.message.includes("R2")) {
+        toast.error(
+          "Image upload to Cloudflare R2 failed. Check CORS/R2 settings.",
+        );
       } else {
         toast.error("Unable to save spot. Please check your connection.");
       }
@@ -1580,12 +1663,12 @@ export default function Home() {
       />
 
       {/* 4. Full-Screen Photo Viewer Modal (Mobile only) */}
-        <SpotPhotoViewerModal
-          isOpen={photoViewerOpen}
-          onClose={() => setPhotoViewerOpen(false)}
-          images={activePhotoList}
-          initialIndex={initialPhotoIndex}
-        />
+      <SpotPhotoViewerModal
+        isOpen={photoViewerOpen}
+        onClose={() => setPhotoViewerOpen(false)}
+        images={activePhotoList}
+        initialIndex={initialPhotoIndex}
+      />
 
       {/* 5. Interactive Leaflet Map */}
       <div className="flex-1 w-full relative h-full">
@@ -1622,6 +1705,148 @@ export default function Home() {
 }
 </file>
 
+<file path="app/profile/changPassword.tsx">
+"use client";
+
+import { useRef, useState, type FormEvent } from "react";
+import { isAxiosError } from "axios";
+import { Lock, User } from "lucide-react";
+import axiosInstance from "@/utils/axiosInstance";
+import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+
+type PasswordField = "currentPassword" | "newPassword" | "confirmPassword";
+type ChangePasswordProps = {
+    avatar: string;
+    onBack: () => void;
+    onSuccess: () => void;
+    onBusyChange: (busy: boolean) => void;
+};
+
+const EMPTY_PASSWORDS = { currentPassword: "", newPassword: "", confirmPassword: "" };
+const PASSWORD_FIELDS = [
+    { name: "currentPassword", label: "Current Password", autoComplete: "current-password" },
+    { name: "newPassword", label: "New Password", autoComplete: "new-password" },
+    { name: "confirmPassword", label: "Confirm New Password", autoComplete: "new-password" },
+] as const;
+
+export default function ChangePassword({ avatar, onBack, onSuccess, onBusyChange }: ChangePasswordProps) {
+    const { user, setUser } = useAuth();
+    const [passwords, setPasswords] = useState(EMPTY_PASSWORDS);
+    const [errors, setErrors] = useState<Partial<Record<PasswordField, string>>>({});
+    const [message, setMessage] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+    const submittingRef = useRef(false);
+
+    function focusField(field: PasswordField) {
+        requestAnimationFrame(() => document.getElementById(`change-${field}`)?.focus());
+    }
+
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (!user || submittingRef.current) return;
+
+        const nextErrors: Partial<Record<PasswordField, string>> = {};
+        const currentLength = [...passwords.currentPassword].length;
+        const newLength = [...passwords.newPassword].length;
+        if (currentLength < 1 || currentLength > 128) nextErrors.currentPassword = "Enter your current password (1–128 characters).";
+        if (newLength < 10 || newLength > 128) nextErrors.newPassword = "New password must be 10–128 characters.";
+        else if (passwords.newPassword === passwords.currentPassword) nextErrors.newPassword = "Choose a password different from your current password.";
+        if (passwords.confirmPassword !== passwords.newPassword) nextErrors.confirmPassword = "Passwords do not match.";
+        setErrors(nextErrors);
+        setMessage("");
+        const invalidField = PASSWORD_FIELDS.find(({ name }) => nextErrors[name]);
+        if (invalidField) {
+            focusField(invalidField.name);
+            return;
+        }
+
+        const ownerID = user.userId;
+        submittingRef.current = true;
+        setIsSaving(true);
+        onBusyChange(true);
+        try {
+            const response = await axiosInstance.patch("/api/auth/password", passwords);
+            if (response.data?.success !== true) throw new Error("Invalid password change response");
+
+            setPasswords(EMPTY_PASSWORDS);
+            onSuccess();
+        } catch (error) {
+            if (isAxiosError(error) && error.response?.status === 401) {
+                setPasswords(EMPTY_PASSWORDS);
+                setUser((current) => current?.userId === ownerID ? null : current);
+            } else {
+                const data = isAxiosError(error) ? error.response?.data : undefined;
+                const errorMessage = typeof data?.message === "string" ? data.message : "Unable to change password. Please try again.";
+                const field = PASSWORD_FIELDS.find(({ name }) => name === data?.field)?.name;
+                if (field) {
+                    setErrors({ [field]: errorMessage });
+                    focusField(field);
+                } else {
+                    setMessage(errorMessage);
+                }
+            }
+        } finally {
+            submittingRef.current = false;
+            setIsSaving(false);
+            onBusyChange(false);
+        }
+    }
+
+    return (
+        <form noValidate onSubmit={handleSubmit} aria-busy={isSaving} className="mx-auto mt-3 flex w-full max-w-[470px] flex-col items-center sm:mt-6 lg:mt-4">
+            <div className="flex size-[72px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] sm:size-40 lg:size-24">
+                {avatar ? (
+                    <img src={avatar} alt="Profile photo" className="size-full object-cover" />
+                ) : <User aria-hidden="true" className="size-10 text-[#526E4E] sm:size-24 lg:size-14" strokeWidth={1.25} />}
+            </div>
+
+            <div className="mt-4 w-full space-y-3 sm:mt-8 sm:space-y-6 lg:mt-4 lg:space-y-3">
+                {PASSWORD_FIELDS.map(({ name, label, autoComplete }) => (
+                    <div key={name} className="space-y-1 sm:space-y-2 lg:space-y-1">
+                        <label htmlFor={`change-${name}`} className="block text-sm font-medium sm:text-lg lg:text-sm">{label}</label>
+                        <InputGroup className="h-11 rounded-md border-[#CBD5E1] bg-white sm:h-14 lg:h-11">
+                            <InputGroupAddon className="pl-3"><Lock aria-hidden="true" className="size-5 text-[#92999E]" /></InputGroupAddon>
+                            <InputGroupInput
+                                id={`change-${name}`}
+                                name={name}
+                                type="password"
+                                autoComplete={autoComplete}
+                                required
+                                disabled={isSaving}
+                                value={passwords[name]}
+                                onChange={(event) => {
+                                    const value = event.target.value;
+                                    setPasswords((current) => ({ ...current, [name]: value }));
+                                    setErrors((current) => ({ ...current, [name]: undefined }));
+                                    setMessage("");
+                                }}
+                                aria-invalid={Boolean(errors[name])}
+                                aria-describedby={errors[name] ? `change-${name}-error` : name === "newPassword" ? "password-rules" : undefined}
+                                className="h-full text-base md:text-base"
+                            />
+                        </InputGroup>
+                        {errors[name] && <p id={`change-${name}-error`} role="alert" className="text-sm text-[#AE3C32]">{errors[name]}</p>}
+                    </div>
+                ))}
+            </div>
+
+            <div className="mt-4 flex w-full max-w-[344px] flex-col gap-2 sm:mt-7 sm:gap-6 lg:mt-4 lg:gap-2">
+                <Button type="submit" disabled={isSaving} className="h-11 w-full rounded-md bg-[#93A58F] text-sm text-[#171C18] hover:bg-[#81977C] disabled:opacity-65">
+                    {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+                <Button type="button" disabled={isSaving} onClick={onBack} className="h-11 w-full rounded-md bg-[#B5756C] text-sm text-[#171C18] hover:bg-[#A8655C]">Cancel</Button>
+            </div>
+            <p id="password-rules" className="mt-3 text-center text-xs text-[#7A817D] sm:mt-4 lg:mt-3">Use a new password with 10–128 characters.</p>
+            <div className="w-full text-center text-sm sm:mt-2 sm:min-h-5" aria-live="polite">
+                {message && <p role="alert" className="max-sm:mt-2 text-[#AE3C32]">{message}</p>}
+            </div>
+        </form>
+    );
+}
+</file>
+
 <file path="app/profile/page.tsx">
 "use client";
 
@@ -1634,6 +1859,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowLeft, User, Mail, Lock, Pencil, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ChangePassword from "./changPassword";
 import {
     InputGroup,
     InputGroupAddon,
@@ -1660,14 +1886,17 @@ const MapComponent = dynamic(
 
 export default function ProfilePage() {
     const { user } = useAuth();
-    return <ProfileContent key={user?.userID ?? "guest"} />;
+    return <ProfileContent key={user?.userId ?? "guest"} />;
 }
 
 function ProfileContent() {
     const { user, isLoading, setUser, logout } = useAuth();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [view, setView] = useState<"profile" | "password">("profile");
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
     const authStatus = isLoading ? "checking" : user ? "member" : "guest";
+    const isPasswordView = authStatus === "member" && view === "password";
     const savedProfile: Profile = user
         ? { username: user.username, email: user.email, avatar: user.profileImage ?? "" }
         : DEFAULT_PROFILE;
@@ -1684,7 +1913,7 @@ function ProfileContent() {
     const hasChanges = profile.username !== savedProfile.username || profile.email !== savedProfile.email || profile.avatar !== savedProfile.avatar;
 
     async function handleLogout() {
-        if (isLoggingOut || isSaving || readingPhoto) return;
+        if (isLoggingOut || isSaving || readingPhoto || isChangingPassword) return;
 
         setIsLoggingOut(true);
         setFeedback(null);
@@ -1704,6 +1933,25 @@ function ProfileContent() {
         } finally {
             setIsLoggingOut(false);
         }
+    }
+
+    function openPasswordForm() {
+        if (isChangingPassword || isSaving || isLoggingOut || readingPhoto) return;
+        setFeedback(null);
+        setView("password");
+        requestAnimationFrame(() => document.getElementById("profile-title")?.focus());
+    }
+
+    function closePasswordForm() {
+        if (isChangingPassword) return;
+        setView("profile");
+        requestAnimationFrame(() => document.getElementById("edit-profile-password")?.focus());
+    }
+
+    function passwordSaved() {
+        setView("profile");
+        setFeedback({ kind: "success", text: "Password changed successfully." });
+        requestAnimationFrame(() => document.getElementById("edit-profile-password")?.focus());
     }
 
     function updateField(field: Field, value: string) {
@@ -1755,8 +2003,8 @@ function ProfileContent() {
 
     async function saveChanges(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        if (!user || readingPhoto || isSaving || isLoggingOut || !hasChanges) return;
-        const ownerID = user.userID;
+        if (!user || readingPhoto || isSaving || isLoggingOut || isChangingPassword || !hasChanges) return;
+        const ownerID = user.userId;
         const next = { ...profile, username: profile.username.trim(), email: profile.email.trim().toLowerCase() };
         const nextErrors: Partial<Record<Field, string>> = {};
         if (next.username.length < 1 || next.username.length > 50) nextErrors.username = "Enter a username with 1–50 characters.";
@@ -1802,11 +2050,11 @@ function ProfileContent() {
                 { withCredentials: true },
             );
             const result = response.data;
-            if (result.success !== true || result.data?.userID !== ownerID) {
+            if (result.success !== true || result.data?.userId !== ownerID) {
                 throw new Error("Invalid profile response");
             }
 
-            setUser((current) => current?.userID === ownerID ? result.data : current);
+            setUser((current) => current?.userId === ownerID ? result.data : current);
             setDraft(null);
             setPendingPhoto(null);
             setEditing(null);
@@ -1815,7 +2063,7 @@ function ProfileContent() {
             if (isAxiosError(error) && error.response?.status === 401) {
                 setDraft(null);
                 setPendingPhoto(null);
-                setUser((current) => current?.userID === ownerID ? null : current);
+                setUser((current) => current?.userId === ownerID ? null : current);
             } else {
                 setFeedback({
                     kind: "error",
@@ -1838,12 +2086,19 @@ function ProfileContent() {
             <section aria-labelledby="profile-title" className="relative z-20 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-24 sm:px-6 sm:py-8 lg:px-10">
                 <div className={`mx-auto my-auto w-full shrink-0 rounded-lg bg-white shadow-xl ${authStatus === "guest" ? "max-w-[560px] px-4 py-5 sm:px-10 lg:px-14" : "max-w-[720px] px-4 py-4 sm:px-10 sm:py-7 lg:flex lg:min-h-[620px] lg:flex-col lg:justify-start lg:px-14 lg:py-5"}`}>
                     <header className={`relative ${authStatus === "guest" ? "grid grid-cols-[44px_minmax(0,1fr)_44px] items-center sm:grid-cols-[80px_minmax(0,1fr)_80px]" : "max-sm:grid max-sm:grid-cols-[44px_minmax(0,1fr)_44px] max-sm:items-center"}`}>
-                        <Link href="/map" aria-label="Back to map" className={`inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] ${authStatus === "guest" ? "justify-center sm:justify-start" : "max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base"}`}>
-                            <ArrowLeft aria-hidden="true" className="size-5" />
-                            <span className="hidden sm:inline">back</span>
-                        </Link>
-                        <h1 id="profile-title" className={`text-center font-bold tracking-tight leading-tight ${authStatus === "guest" ? "text-xl" : "text-[22px] sm:text-4xl lg:px-40 lg:text-[24px]"}`}>
-                            {authStatus === "member" ? "Profile Settings" : "Profile"}
+                        {isPasswordView ? (
+                            <button type="button" onClick={closePasswordForm} disabled={isChangingPassword} aria-label="Back to Profile Settings" className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] disabled:opacity-60 max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base">
+                                <ArrowLeft aria-hidden="true" className="size-5" />
+                                <span className="hidden sm:inline">back</span>
+                            </button>
+                        ) : (
+                            <Link href="/map" aria-label="Back to map" className={`inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#526E4E] ${authStatus === "guest" ? "justify-center sm:justify-start" : "max-sm:justify-center sm:mb-5 lg:absolute lg:top-0 lg:left-0 lg:mb-0 lg:text-base"}`}>
+                                <ArrowLeft aria-hidden="true" className="size-5" />
+                                <span className="hidden sm:inline">back</span>
+                            </Link>
+                        )}
+                        <h1 id="profile-title" tabIndex={-1} className={`text-center font-bold tracking-tight leading-tight outline-none ${authStatus === "guest" ? "text-xl" : "text-[22px] sm:text-4xl lg:px-40 lg:text-[24px]"}`}>
+                            {isPasswordView ? "Change Password" : authStatus === "member" ? "Profile Settings" : "Profile"}
                         </h1>
                         <div className={`mx-auto h-px bg-[#DCDCE2] ${authStatus === "guest" ? "col-span-3 mt-3 w-52 max-w-full" : "mt-2 w-32 max-sm:col-span-3 sm:mt-5 sm:w-52 lg:mt-3"}`} />
                     </header>
@@ -1853,7 +2108,10 @@ function ProfileContent() {
                         </p>
                     )}
                     {authStatus === "guest" && <GuestProfileContent />}
-                    {authStatus === "member" && (
+                    {isPasswordView && (
+                        <ChangePassword avatar={profile.avatar} onBack={closePasswordForm} onSuccess={passwordSaved} onBusyChange={setIsChangingPassword} />
+                    )}
+                    {authStatus === "member" && !isPasswordView && (
                         <form noValidate onSubmit={saveChanges} aria-busy={readingPhoto || isLoggingOut || isSaving} className="mx-auto mt-3 flex w-full max-w-[470px] flex-col items-center sm:mt-6 lg:mt-4">
                             <div className="relative">
                                 <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-full bg-[#E0ECDD] sm:size-40 lg:size-24">
@@ -1893,7 +2151,7 @@ function ProfileContent() {
                                     <InputGroup className="h-11 rounded-md border-[#CBD5E1] bg-white sm:h-14 lg:h-11">
                                         <InputGroupAddon className="pl-3"><Lock aria-hidden="true" className="size-5 text-[#92999E]" /></InputGroupAddon>
                                         <InputGroupInput id="profile-password" type="password" autoComplete="off" readOnly value="" placeholder="••••••••••••" className="h-full text-base placeholder:text-[#8A9BAF] md:text-base" />
-                                        <InputGroupAddon align="inline-end"><InputGroupButton size="icon-sm" aria-label="Change password" onClick={() => setFeedback({ kind: "info", text: "Password changes are not available until account services are connected." })} className="size-10 text-[#858B89]"><Pencil aria-hidden="true" className="size-5" /></InputGroupButton></InputGroupAddon>
+                                        <InputGroupAddon align="inline-end"><InputGroupButton id="edit-profile-password" size="icon-sm" aria-label="Change password" onClick={openPasswordForm} disabled={isSaving || isLoggingOut || readingPhoto || isChangingPassword} className="size-10 text-[#858B89]"><Pencil aria-hidden="true" className="size-5" /></InputGroupButton></InputGroupAddon>
                                     </InputGroup>
                                 </div>
                             </div>
@@ -2384,8 +2642,8 @@ export default function RootLayout({
                 classNames: {
                   toast: "rounded-xl border shadow-md font-sans",
                   warning: "!bg-[#FBF3D5] !text-[#6B4E16] !border-[#B88928]/30",
-                  success: "!bg-[#E0ECDD] !text-[#2F452C] !border-[#526E4E]/30", // สีเขียวโทนเดียวกับโปรไฟล์คุณ
-                  error: "!bg-[#FDECEC] !text-[#AE3C32] !border-[#AE3C32]/30", // สีแดงโทนเดียวกับ Error ในเว็บคุณ
+                  success: "!bg-[#E0ECDD] !text-[#2F452C] !border-[#526E4E]/30", 
+                  error: "!bg-[#FDECEC] !text-[#AE3C32] !border-[#AE3C32]/30", 
                   info: "!bg-white !text-slate-800 !border-slate-200",
                 },
               }}
@@ -3070,8 +3328,25 @@ export default function MobileSpotDrawer({
               {/* Left: Author */}
               {spot ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="size-7 rounded-full bg-amber-100/80 text-amber-800 flex items-center justify-center text-xs font-semibold border border-amber-200/80 shrink-0 uppercase">
-                    {spot.author?.avatar || spot.author?.name?.charAt(0) || "A"}
+                  <div className="size-7 rounded-full bg-accent text-secondary flex items-center justify-center text-xs font-semibold border border-border/80 shrink-0 overflow-hidden uppercase">
+                    {spot.author?.avatar ? (
+                      <img
+                        src={spot.author.avatar}
+                        alt={spot.author.name || "author"}
+                        className="size-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) {
+                            parent.innerText = (
+                              spot.author?.name?.charAt(0) || "A"
+                            ).toUpperCase();
+                          }
+                        }}
+                      />
+                    ) : (
+                      (spot.author?.name?.charAt(0) || "A").toUpperCase()
+                    )}
                   </div>
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5 text-xs leading-tight">
@@ -3099,11 +3374,11 @@ export default function MobileSpotDrawer({
               )}
             </div>
           )}
-        {/* Animal Badge Tags */}
+        {/* Animal Badge Tags (Truncated +N) */}
           {categories.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-              {categories.map((animalName) => {
-                const key = animalName.toLowerCase();
+            <div className="flex items-center gap-1.5 min-w-0 shrink-0 overflow-hidden">
+              {categories.slice(0, 3).map((animalName) => {
+                const key = animalName.trim().toLowerCase();
                 const pin =
                   animalPinMap?.[key] ||
                   spot?.pinName ||
@@ -3111,13 +3386,23 @@ export default function MobileSpotDrawer({
                 return (
                   <span
                     key={animalName}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide"
+                    title={animalName}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide max-w-[100px]"
                   >
-                    <AnimalIcon pinName={pin} className="size-3.5" />
-                    {animalName}
+                    <AnimalIcon pinName={pin} className="size-3.5 shrink-0" />
+                    <span className="truncate">{animalName}</span>
                   </span>
                 );
               })}
+
+              {categories.length > 3 && (
+                <span
+                  title={categories.slice(3).join(", ")}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold shrink-0"
+                >
+                  +{categories.length - 3}
+                </span>
+              )}
             </div>
           )}
 
@@ -3544,31 +3829,58 @@ export default function SpotCard({
       <div className="w-full pt-2.5 border-t border-border/60 flex items-center justify-between gap-2 shrink-0">
         {/* Left: Author */}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="size-7 rounded-full bg-amber-100/80 text-amber-800 flex items-center justify-center text-xs font-semibold border border-amber-200/80 shrink-0 uppercase">
-            {data.author?.avatar || data.author?.name?.charAt(0) || "A"}
+          <div className="size-7 rounded-full bg-accent text-secondary flex items-center justify-center text-xs font-semibold border border-border/80 shrink-0 overflow-hidden uppercase">
+            {data.author?.avatar ? (
+              <img
+                src={data.author.avatar}
+                alt={data.author.name || "author"}
+                className="size-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    parent.innerText = (
+                      data.author?.name?.charAt(0) || "A"
+                    ).toUpperCase();
+                  }
+                }}
+              />
+            ) : (
+              (data.author?.name?.charAt(0) || "A").toUpperCase()
+            )}
           </div>
           <span className="text-xs font-semibold text-foreground truncate">
             {data.author?.name || "Spotter"}
           </span>
         </div>
 
-        {/* Right: Animal Badge Tags */}
+        {/* Right: Animal Badge Tags (Truncated +N) */}
         {categories.length > 0 && (
-          <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
-            {categories.map((animalName) => {
-                const key = animalName.trim().toLowerCase();
-                const pin = animalPinMap?.[key] || "ph:paw-print-fill";
+          <div className="flex items-center justify-end gap-1.5 min-w-0 shrink-0">
+            {categories.slice(0, 2).map((animalName) => {
+              const key = animalName.trim().toLowerCase();
+              const pin =
                 animalPinMap?.[key] || data.pinName || "ph:paw-print-fill";
               return (
                 <span
                   key={animalName}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide"
+                  title={animalName}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide max-w-[95px]"
                 >
-                  <AnimalIcon pinName={pin} className="size-3.5" />
-                  {animalName}
+                  <AnimalIcon pinName={pin} className="size-3.5 shrink-0" />
+                  <span className="truncate">{animalName}</span>
                 </span>
               );
             })}
+
+            {categories.length > 2 && (
+              <span
+                title={categories.slice(2).join(", ")}
+                className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold shrink-0"
+              >
+                +{categories.length - 2}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -3903,6 +4215,11 @@ import AnimalIcon from "@/components/spotModal/AnimalIcon";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_PHOTOS = 20;
+
 export interface AnimalItem {
   animalId: number;
   categoryId: number;
@@ -3992,6 +4309,26 @@ export default function SpotModal({
       ) && animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  // ฟังก์ชันช่วยคืน Memory ของรูปที่สร้างจาก createObjectURL
+  const revokeNewImageUrls = (items: SpotImageItem[]) => {
+    items.forEach((item) => {
+      if (item.type === "new") {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+  };
+
+  // ลบรูปทีละใบพร้อมคืน Memory
+  const handleRemoveImage = (indexToRemove: number) => {
+    setSelectedImages((prev) => {
+      const target = prev[indexToRemove];
+      if (target?.type === "new") {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((_, i) => i !== indexToRemove);
+    });
+  };
+
   // save spot จาก form information
   const handleSave = async () => {
     if (!spotData) {
@@ -4038,6 +4375,8 @@ export default function SpotModal({
 
       // เคลียร์ค่าเมื่อบันทึกสำเร็จเท่านั้น
       setTitle("");
+      //revoke รูปทิ้ง
+      revokeNewImageUrls(selectedImages);
       setDescription("");
       setSelectedAnimals([]);
       setSelectedImages([]);
@@ -4052,6 +4391,7 @@ export default function SpotModal({
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setView("main");
+      revokeNewImageUrls(selectedImages);
       setTitle("");
       setDescription("");
       setSelectedAnimals([]);
@@ -4102,6 +4442,64 @@ export default function SpotModal({
       setSelectedImages([]);
     }
   }, [isOpen, mode, initialData]);
+
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // รีเซ็ต input เพื่อให้เลือกรูปเดิมซ้ำได้
+
+    if (files.length === 0) return;
+    // extract มาเเค่เฉพาะ spotimage type: new
+    const validItems: Extract<SpotImageItem, { type: "new" }>[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        errors.push(`${file.name}: Only JPG, PNG, and WebP are supported.`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        errors.push(`${file.name}: File size exceeds ${MAX_FILE_SIZE_MB}MB.`);
+        continue;
+      }
+      validItems.push({
+        type: "new",
+        file,
+        // เปลี่ยนจาก file image เป็น url เพื่อเอาไปแสดง
+        previewUrl: URL.createObjectURL(file),
+      });
+    }
+
+    if (errors.length > 0) {
+      toast.error(errors[0], {
+        description:
+          errors.length > 1
+            ? `And ${errors.length - 1} more file(s) skipped.`
+            : undefined,
+      });
+    }
+
+    if (validItems.length > 0) {
+      const remainingSlots = MAX_PHOTOS - selectedImages.length;
+
+      if (remainingSlots <= 0) {
+        validItems.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+        toast.warning(`Maximum ${MAX_PHOTOS} photos allowed.`);
+        return;
+      }
+
+      const accepted = validItems.slice(0, remainingSlots);
+      validItems.slice(remainingSlots).forEach((item) => {
+        URL.revokeObjectURL(item.previewUrl);
+      });
+
+      if (validItems.length > remainingSlots) {
+        toast.warning(
+          `Maximum ${MAX_PHOTOS} photos allowed. Extra files were skipped.`,
+        );
+      }
+      setSelectedImages((prev) => [...prev, ...accepted]);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -4193,7 +4591,7 @@ export default function SpotModal({
                 </div>
 
                 {/* Spot Description */}
-                <div className="w-full min-h-[250px] md:min-h-full rounded-xl border border-border p-3 overflow-y-auto custom-scrollbar bg-card focus-within:ring-2 focus-within:ring-secondary flex flex-col">
+                <div className="w-full h-[140px] md:h-[160px] shrink-0 rounded-xl border border-border p-3 overflow-hidden bg-card focus-within:ring-2 focus-within:ring-secondary flex flex-col">
                   <Textarea
                     placeholder="Describe or share something about your experience"
                     className="w-full flex-1 resize-none border-0 bg-transparent p-1 focus-visible:ring-0 shadow-none focus-visible:outline-none custom-scrollbar"
@@ -4266,9 +4664,7 @@ export default function SpotModal({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedImages((prev) =>
-                                  prev.filter((_, i) => i !== index),
-                                );
+                                handleRemoveImage(index);
                               }}
                               className="absolute top-1.5 right-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md"
                             >
@@ -4398,7 +4794,7 @@ export default function SpotModal({
                 </span>
               </button>
               <h3 className="text-base font-bold text-foreground">
-                Edit Image/Video
+                Edit Image
               </h3>
               <Button
                 type="button"
@@ -4428,12 +4824,7 @@ export default function SpotModal({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation(); // <-- กันไม่ให้ไปทริกเกอร์เปิดรูปเต็มตอนกดปุ่มลบ
-                        setSelectedImages((prev) =>
-                          prev.filter((_, i) => i !== index),
-                        );
-                        if (selectedImages.length <= 1) {
-                          setIsEditingImages(false);
-                        }
+                        handleRemoveImage(index);
                       }}
                       className="absolute top-3 right-3 bg-black/70 hover:bg-destructive text-white rounded-full p-1.5 transition shadow-lg cursor-pointer"
                     >
@@ -4566,39 +4957,18 @@ export default function SpotModal({
         <input
           id="camera-input"
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           capture="environment"
-          multiple
           className="hidden"
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            if (files.length > 0) {
-              const newItems: SpotImageItem[] = files.map((file) => ({
-                type: "new",
-                file,
-                previewUrl: URL.createObjectURL(file),
-              }));
-              setSelectedImages((prev) => [...prev, ...newItems]);
-            }
-          }}
+          onChange={handleFilesSelected}
         />
         <input
           id="gallery-input"
           type="file"
-          accept="image/*"
-          className="hidden"
+          accept="image/jpeg,image/png,image/webp"
           multiple
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            if (files.length > 0) {
-              const newItems: SpotImageItem[] = files.map((file) => ({
-                type: "new",
-                file,
-                previewUrl: URL.createObjectURL(file),
-              }));
-              setSelectedImages((prev) => [...prev, ...newItems]);
-            }
-          }}
+          className="hidden"
+          onChange={handleFilesSelected}
         />
       </DialogContent>
     </Dialog>
@@ -4612,6 +4982,7 @@ export default function SpotModal({
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Compass, BookOpen, User } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
 
 const navItems = [
   { label: "Map", href: "/map", icon: Compass },
@@ -4621,6 +4992,17 @@ const navItems = [
 
 export function Navigation() {
   const pathname = usePathname()
+  const { user, isLoading } = useAuth()
+
+  const navItems = [
+    { label: "Map", href: "/map", icon: Compass },
+    { label: "Collection", href: "/collection", icon: BookOpen },
+    {
+      label: isLoading ? "…" : user ? "Profile" : "Login",
+      href: "/profile",
+      icon: User,
+    },
+  ]
 
   return (
     <>
@@ -4628,18 +5010,29 @@ export function Navigation() {
         <div className="flex flex-col items-center gap-6">
           {navItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || (item.href === "/map" && pathname === "/")
+            const isProfile = item.href === "/profile"
+            const isActive =
+              pathname === item.href ||
+              (item.href === "/map" && pathname === "/")
+
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-1.5 transition-colors ${
-                  isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`flex flex-col items-center gap-1.5 transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 <div className={`p-2.5 rounded-full transition-all ${isActive ? "bg-accent text-secondary" : ""}`}>
-                  <Icon className="size-6 stroke-[2]" />
+                  {isProfile && user?.profileImage ? (
+                    <img
+                      src={user.profileImage}
+                      alt=""
+                      className="size-7 rounded-full object-cover"
+                    />
+                  ) : (
+                    <Icon className="size-6 stroke-[2]" />
+                  )}
                 </div>
                 <span className="text-xs">{item.label}</span>
               </Link>
@@ -4651,22 +5044,31 @@ export function Navigation() {
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-[72px] items-center justify-around border-t border-border bg-card/95 px-4 backdrop-blur-md sm:hidden">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href || (item.href === "/map" && pathname === "/")
+          const isProfile = item.href === "/profile"
+          const isActive =
+            pathname === item.href ||
+            (item.href === "/map" && pathname === "/")
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center gap-1 transition-all ${
-                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`flex flex-col items-center justify-center gap-1 transition-all ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               <div
-                className={`flex items-center justify-center rounded-full transition-all ${
-                  isActive ? "bg-accent text-secondary px-4 py-1.5" : "px-4 py-1.5"
-                }`}
+                className={`flex items-center justify-center rounded-full transition-all ${isActive ? "bg-accent text-secondary px-4 py-1.5" : "px-4 py-1.5"
+                  }`}
               >
-                <Icon className="size-6 stroke-[2]" />
+                {isProfile && user?.profileImage ? (
+                  <img
+                    src={user.profileImage}
+                    alt=""
+                    className="size-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <Icon className="size-6 stroke-[2]" />
+                )}
               </div>
               <span className="text-xs">{item.label}</span>
             </Link>
@@ -9101,7 +9503,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import axiosInstance from "@/utils/axiosInstance";
 
 export interface AuthUser {
-  userID: number;
+  userId: number;
   username: string;
   email: string;
   profileImage: string | null;
@@ -9168,6 +9570,36 @@ export function useAuth() {
 }
 </file>
 
+<file path=".github/workflows/playwright.yml">
+name: Playwright Tests
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+    - name: Install dependencies
+      run: npm ci
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+    - name: Run Playwright tests
+      run: npx playwright test
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30
+</file>
+
 <file path="hooks/use-mobile.ts">
 import * as React from "react"
 
@@ -9212,6 +9644,27 @@ export { cn } from "cn"
 
 <file path="public/window.svg">
 <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="tests/example.spec.ts">
+import { test, expect } from '@playwright/test';
+
+test('has title', async ({ page }) => {
+  await page.goto('https://playwright.dev/');
+
+  // Expect a title "to contain" a substring.
+  await expect(page).toHaveTitle(/Playwright/);
+});
+
+test('get started link', async ({ page }) => {
+  await page.goto('https://playwright.dev/');
+
+  // Click the get started link.
+  await page.getByRole('link', { name: 'Get started' }).click();
+
+  // Expects page to have a heading with the name of Installation.
+  await expect(page.getByRole('heading', { name: 'Installation' })).toBeVisible();
+});
 </file>
 
 <file path="types/spot.ts">
@@ -9364,6 +9817,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
 </file>
 
 <file path="next.config.ts">
@@ -9409,6 +9870,7 @@ export default nextConfig;
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
@@ -9420,6 +9882,88 @@ export default nextConfig;
     "typescript": "^5"
   }
 }
+</file>
+
+<file path="playwright.config.ts">
+import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * Read environment variables from file.
+ * https://github.com/motdotla/dotenv
+ */
+// import dotenv from 'dotenv';
+// import path from 'path';
+// dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+/**
+ * See https://playwright.dev/docs/test-configuration.
+ */
+export default defineConfig({
+  testDir: './tests',
+  /* Run tests in files in parallel */
+  fullyParallel: true,
+  /* Fail the build on CI if you accidentally left test.only in the source code. */
+  forbidOnly: !!process.env.CI,
+  /* Retry on CI only */
+  retries: process.env.CI ? 2 : 0,
+  /* Opt out of parallel tests on CI. */
+  workers: process.env.CI ? 1 : undefined,
+  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+  reporter: 'html',
+  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  use: {
+    /* Base URL to use in actions like `await page.goto('')`. */
+    // baseURL: 'http://localhost:3000',
+
+    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    trace: 'on-first-retry',
+  },
+
+  /* Configure projects for major browsers */
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+
+    /* Test against mobile viewports. */
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    // },
+
+    /* Test against branded browsers. */
+    // {
+    //   name: 'Microsoft Edge',
+    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
+    // },
+    // {
+    //   name: 'Google Chrome',
+    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+    // },
+  ],
+
+  /* Run your local dev server before starting the tests */
+  // webServer: {
+  //   command: 'npm run start',
+  //   url: 'http://localhost:3000',
+  //   reuseExistingServer: !process.env.CI,
+  // },
+});
 </file>
 
 <file path="postcss.config.mjs">
