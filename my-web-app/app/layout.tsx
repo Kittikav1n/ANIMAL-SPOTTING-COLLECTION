@@ -36,8 +36,8 @@ export default function RootLayout({
                 classNames: {
                   toast: "rounded-xl border shadow-md font-sans",
                   warning: "!bg-[#FBF3D5] !text-[#6B4E16] !border-[#B88928]/30",
-                  success: "!bg-[#E0ECDD] !text-[#2F452C] !border-[#526E4E]/30", // สีเขียวโทนเดียวกับโปรไฟล์คุณ
-                  error: "!bg-[#FDECEC] !text-[#AE3C32] !border-[#AE3C32]/30", // สีแดงโทนเดียวกับ Error ในเว็บคุณ
+                  success: "!bg-[#E0ECDD] !text-[#2F452C] !border-[#526E4E]/30", 
+                  error: "!bg-[#FDECEC] !text-[#AE3C32] !border-[#AE3C32]/30", 
                   info: "!bg-white !text-slate-800 !border-slate-200",
                 },
               }}

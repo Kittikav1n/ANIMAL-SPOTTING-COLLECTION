@@ -147,8 +147,25 @@ export default function MobileSpotDrawer({
               {/* Left: Author */}
               {spot ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="size-7 rounded-full bg-amber-100/80 text-amber-800 flex items-center justify-center text-xs font-semibold border border-amber-200/80 shrink-0 uppercase">
-                    {spot.author?.avatar || spot.author?.name?.charAt(0) || "A"}
+                  <div className="size-7 rounded-full bg-accent text-secondary flex items-center justify-center text-xs font-semibold border border-border/80 shrink-0 overflow-hidden uppercase">
+                    {spot.author?.avatar ? (
+                      <img
+                        src={spot.author.avatar}
+                        alt={spot.author.name || "author"}
+                        className="size-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) {
+                            parent.innerText = (
+                              spot.author?.name?.charAt(0) || "A"
+                            ).toUpperCase();
+                          }
+                        }}
+                      />
+                    ) : (
+                      (spot.author?.name?.charAt(0) || "A").toUpperCase()
+                    )}
                   </div>
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5 text-xs leading-tight">
@@ -176,11 +193,11 @@ export default function MobileSpotDrawer({
               )}
             </div>
           )}
-        {/* Animal Badge Tags */}
+        {/* Animal Badge Tags (Truncated +N) */}
           {categories.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-              {categories.map((animalName) => {
-                const key = animalName.toLowerCase();
+            <div className="flex items-center gap-1.5 min-w-0 shrink-0 overflow-hidden">
+              {categories.slice(0, 3).map((animalName) => {
+                const key = animalName.trim().toLowerCase();
                 const pin =
                   animalPinMap?.[key] ||
                   spot?.pinName ||
@@ -188,13 +205,23 @@ export default function MobileSpotDrawer({
                 return (
                   <span
                     key={animalName}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide"
+                    title={animalName}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px] font-semibold uppercase tracking-wide max-w-[100px]"
                   >
-                    <AnimalIcon pinName={pin} className="size-3.5" />
-                    {animalName}
+                    <AnimalIcon pinName={pin} className="size-3.5 shrink-0" />
+                    <span className="truncate">{animalName}</span>
                   </span>
                 );
               })}
+
+              {categories.length > 3 && (
+                <span
+                  title={categories.slice(3).join(", ")}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold shrink-0"
+                >
+                  +{categories.length - 3}
+                </span>
+              )}
             </div>
           )}
 

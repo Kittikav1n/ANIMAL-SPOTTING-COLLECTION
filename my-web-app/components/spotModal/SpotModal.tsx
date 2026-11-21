@@ -39,6 +39,11 @@ import AnimalIcon from "@/components/spotModal/AnimalIcon";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_PHOTOS = 20;
+
 export interface AnimalItem {
   animalId: number;
   categoryId: number;
@@ -128,6 +133,26 @@ export default function SpotModal({
       ) && animal.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  // ฟังก์ชันช่วยคืน Memory ของรูปที่สร้างจาก createObjectURL
+  const revokeNewImageUrls = (items: SpotImageItem[]) => {
+    items.forEach((item) => {
+      if (item.type === "new") {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+  };
+
+  // ลบรูปทีละใบพร้อมคืน Memory
+  const handleRemoveImage = (indexToRemove: number) => {
+    setSelectedImages((prev) => {
+      const target = prev[indexToRemove];
+      if (target?.type === "new") {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((_, i) => i !== indexToRemove);
+    });
+  };
+
   // save spot จาก form information
   const handleSave = async () => {
     if (!spotData) {
@@ -174,6 +199,8 @@ export default function SpotModal({
 
       // เคลียร์ค่าเมื่อบันทึกสำเร็จเท่านั้น
       setTitle("");
+      //revoke รูปทิ้ง
+      revokeNewImageUrls(selectedImages);
       setDescription("");
       setSelectedAnimals([]);
       setSelectedImages([]);
@@ -188,6 +215,7 @@ export default function SpotModal({
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setView("main");
+      revokeNewImageUrls(selectedImages);
       setTitle("");
       setDescription("");
       setSelectedAnimals([]);
@@ -238,6 +266,64 @@ export default function SpotModal({
       setSelectedImages([]);
     }
   }, [isOpen, mode, initialData]);
+
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // รีเซ็ต input เพื่อให้เลือกรูปเดิมซ้ำได้
+
+    if (files.length === 0) return;
+    // extract มาเเค่เฉพาะ spotimage type: new
+    const validItems: Extract<SpotImageItem, { type: "new" }>[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        errors.push(`${file.name}: Only JPG, PNG, and WebP are supported.`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        errors.push(`${file.name}: File size exceeds ${MAX_FILE_SIZE_MB}MB.`);
+        continue;
+      }
+      validItems.push({
+        type: "new",
+        file,
+        // เปลี่ยนจาก file image เป็น url เพื่อเอาไปแสดง
+        previewUrl: URL.createObjectURL(file),
+      });
+    }
+
+    if (errors.length > 0) {
+      toast.error(errors[0], {
+        description:
+          errors.length > 1
+            ? `And ${errors.length - 1} more file(s) skipped.`
+            : undefined,
+      });
+    }
+
+    if (validItems.length > 0) {
+      const remainingSlots = MAX_PHOTOS - selectedImages.length;
+
+      if (remainingSlots <= 0) {
+        validItems.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+        toast.warning(`Maximum ${MAX_PHOTOS} photos allowed.`);
+        return;
+      }
+
+      const accepted = validItems.slice(0, remainingSlots);
+      validItems.slice(remainingSlots).forEach((item) => {
+        URL.revokeObjectURL(item.previewUrl);
+      });
+
+      if (validItems.length > remainingSlots) {
+        toast.warning(
+          `Maximum ${MAX_PHOTOS} photos allowed. Extra files were skipped.`,
+        );
+      }
+      setSelectedImages((prev) => [...prev, ...accepted]);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -329,7 +415,7 @@ export default function SpotModal({
                 </div>
 
                 {/* Spot Description */}
-                <div className="w-full min-h-[250px] md:min-h-full rounded-xl border border-border p-3 overflow-y-auto custom-scrollbar bg-card focus-within:ring-2 focus-within:ring-secondary flex flex-col">
+                <div className="w-full h-[140px] md:h-[160px] shrink-0 rounded-xl border border-border p-3 overflow-hidden bg-card focus-within:ring-2 focus-within:ring-secondary flex flex-col">
                   <Textarea
                     placeholder="Describe or share something about your experience"
                     className="w-full flex-1 resize-none border-0 bg-transparent p-1 focus-visible:ring-0 shadow-none focus-visible:outline-none custom-scrollbar"
@@ -402,9 +488,7 @@ export default function SpotModal({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedImages((prev) =>
-                                  prev.filter((_, i) => i !== index),
-                                );
+                                handleRemoveImage(index);
                               }}
                               className="absolute top-1.5 right-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md"
                             >
@@ -564,12 +648,7 @@ export default function SpotModal({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation(); // <-- กันไม่ให้ไปทริกเกอร์เปิดรูปเต็มตอนกดปุ่มลบ
-                        setSelectedImages((prev) =>
-                          prev.filter((_, i) => i !== index),
-                        );
-                        if (selectedImages.length <= 1) {
-                          setIsEditingImages(false);
-                        }
+                        handleRemoveImage(index);
                       }}
                       className="absolute top-3 right-3 bg-black/70 hover:bg-destructive text-white rounded-full p-1.5 transition shadow-lg cursor-pointer"
                     >
@@ -702,39 +781,18 @@ export default function SpotModal({
         <input
           id="camera-input"
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           capture="environment"
-          multiple
           className="hidden"
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            if (files.length > 0) {
-              const newItems: SpotImageItem[] = files.map((file) => ({
-                type: "new",
-                file,
-                previewUrl: URL.createObjectURL(file),
-              }));
-              setSelectedImages((prev) => [...prev, ...newItems]);
-            }
-          }}
+          onChange={handleFilesSelected}
         />
         <input
           id="gallery-input"
           type="file"
-          accept="image/*"
-          className="hidden"
+          accept="image/jpeg,image/png,image/webp"
           multiple
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            if (files.length > 0) {
-              const newItems: SpotImageItem[] = files.map((file) => ({
-                type: "new",
-                file,
-                previewUrl: URL.createObjectURL(file),
-              }));
-              setSelectedImages((prev) => [...prev, ...newItems]);
-            }
-          }}
+          className="hidden"
+          onChange={handleFilesSelected}
         />
       </DialogContent>
     </Dialog>

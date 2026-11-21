@@ -69,15 +69,32 @@ export default function SpotCard({
       <div className="w-full pt-2.5 border-t border-border/60 flex items-center justify-between gap-2 shrink-0">
         {/* Left: Author */}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="size-7 rounded-full bg-amber-100/80 text-amber-800 flex items-center justify-center text-xs font-semibold border border-amber-200/80 shrink-0 uppercase">
-            {data.author?.avatar || data.author?.name?.charAt(0) || "A"}
+          <div className="size-7 rounded-full bg-accent text-secondary flex items-center justify-center text-xs font-semibold border border-border/80 shrink-0 overflow-hidden uppercase">
+            {data.author?.avatar ? (
+              <img
+                src={data.author.avatar}
+                alt={data.author.name || "author"}
+                className="size-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    parent.innerText = (
+                      data.author?.name?.charAt(0) || "A"
+                    ).toUpperCase();
+                  }
+                }}
+              />
+            ) : (
+              (data.author?.name?.charAt(0) || "A").toUpperCase()
+            )}
           </div>
           <span className="text-xs font-semibold text-foreground truncate">
             {data.author?.name || "Spotter"}
           </span>
         </div>
 
-        {/* Right: Animal Badge Tags */}
+        {/* Right: Animal Badge Tags (Truncated +N) */}
         {categories.length > 0 && (
           <div className="flex items-center justify-end gap-1.5 min-w-0 shrink-0">
             {categories.slice(0, 2).map((animalName) => {

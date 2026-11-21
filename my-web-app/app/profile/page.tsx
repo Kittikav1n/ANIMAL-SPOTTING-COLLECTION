@@ -36,7 +36,7 @@ const MapComponent = dynamic(
 
 export default function ProfilePage() {
     const { user } = useAuth();
-    return <ProfileContent key={user?.userID ?? "guest"} />;
+    return <ProfileContent key={user?.userId ?? "guest"} />;
 }
 
 function ProfileContent() {
@@ -154,7 +154,7 @@ function ProfileContent() {
     async function saveChanges(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         if (!user || readingPhoto || isSaving || isLoggingOut || isChangingPassword || !hasChanges) return;
-        const ownerID = user.userID;
+        const ownerID = user.userId;
         const next = { ...profile, username: profile.username.trim(), email: profile.email.trim().toLowerCase() };
         const nextErrors: Partial<Record<Field, string>> = {};
         if (next.username.length < 1 || next.username.length > 50) nextErrors.username = "Enter a username with 1–50 characters.";
@@ -200,11 +200,11 @@ function ProfileContent() {
                 { withCredentials: true },
             );
             const result = response.data;
-            if (result.success !== true || result.data?.userID !== ownerID) {
+            if (result.success !== true || result.data?.userId !== ownerID) {
                 throw new Error("Invalid profile response");
             }
 
-            setUser((current) => current?.userID === ownerID ? result.data : current);
+            setUser((current) => current?.userId === ownerID ? result.data : current);
             setDraft(null);
             setPendingPhoto(null);
             setEditing(null);
@@ -213,7 +213,7 @@ function ProfileContent() {
             if (isAxiosError(error) && error.response?.status === 401) {
                 setDraft(null);
                 setPendingPhoto(null);
-                setUser((current) => current?.userID === ownerID ? null : current);
+                setUser((current) => current?.userId === ownerID ? null : current);
             } else {
                 setFeedback({
                     kind: "error",

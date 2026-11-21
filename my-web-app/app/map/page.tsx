@@ -39,7 +39,7 @@ interface ExtendedAnimalOption extends AnimalCategoryOption {
 
 export default function Home() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [spots, setSpots] = useState<SpotPinData[]>([]);
   const [showSpotCard, setShowSpotCard] = useState(false);
@@ -103,6 +103,28 @@ export default function Home() {
           .filter(Boolean)
       : [];
 
+    // ดึงข้อมูลผู้โพสต์ (ถ้าตรงกับ user ที่ล็อกอินอยู่ ให้ใช้ข้อมูลจาก AuthContext สำรองหาก Backend ไม่ได้ส่ง avatar มา)
+    const rawUser = raw.user || {};
+    const isCurrentUser =
+      user &&
+      (rawUser.userId === user.userId || rawUser.username === user.username);
+
+    const resolvedAvatar =
+      rawUser.avatar ||
+      rawUser.profileImage ||
+      rawUser.profilePicture ||
+      rawUser.avatarUrl ||
+      rawUser.image ||
+      raw.author?.avatar ||
+      (isCurrentUser
+        ? (user as any)?.avatar ||
+          (user as any)?.profileImage ||
+          (user as any)?.profilePicture ||
+          (user as any)?.avatarUrl ||
+          (user as any)?.image
+        : "") ||
+      "";
+
     return {
       id: String(raw.spotId || raw.id || Date.now()),
       title: raw.title || "Animal Spot",
@@ -116,9 +138,14 @@ export default function Home() {
       photoUrl: images[0] || "",
       author: {
         name:
-          raw.user?.username ||
+          rawUser.username ||
+          rawUser.name ||
+          raw.author?.name ||
+          (isCurrentUser
+            ? (user as any)?.username || (user as any)?.name
+            : "") ||
           "Spotter",
-        avatar: raw.user?.avatar || raw.author?.avatar || "",
+        avatar: resolvedAvatar,
       },
     };
   };
@@ -142,7 +169,7 @@ export default function Home() {
           }),
         );
 
-        //dictionary for pin
+        // dictionary for pin
         const pinLookup: Record<string, string> = {};
         formattedAnimals.forEach((a) => {
           pinLookup[a.id] = a.pinName || "ph:question";
@@ -177,12 +204,12 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   // รายการหมวดหมู่สัตว์ดึงจาก Backend เท่านั้น
   const dynamicFilterChips: AnimalChipItem[] = useMemo(() => {
     const topAnimals: AnimalChipItem[] = backendAnimals
-      .slice(3, 8) // ยอดนิยม order มาให้จาก bn เเล้ว
+      .slice(0, 5)
       .map((a: any) => ({
         id: a.name,
         label: a.name.toUpperCase(),
@@ -193,17 +220,18 @@ export default function Home() {
 
   // Map ชื่อสัตว์ -> รหัส pinName จาก Database สำหรับใช้แสดงไอคอนบนหมุดแผนที่
   const animalPinMap = useMemo(() => {
-      const map: Record<string, string> = {};
-      backendAnimals.forEach((a: any) => {
-        const key = String(a.name || a.id || "").trim().toLowerCase();
-        // ดักทั้ง camelCase (pinName) และ snake_case (pin_name) จาก Backend
-        const pin = a.pinName || a.pin_name || a.icon;
-        if (key && pin) {
-          map[key] = pin;
-        }
-      });
-      return map;
-    }, [backendAnimals]);
+    const map: Record<string, string> = {};
+    backendAnimals.forEach((a: any) => {
+      const key = String(a.name || a.id || "")
+        .trim()
+        .toLowerCase();
+      const pin = a.pinName || a.pin_name || a.icon;
+      if (key && pin) {
+        map[key] = pin;
+      }
+    });
+    return map;
+  }, [backendAnimals]);
 
   const filteredSpots = useMemo(() => {
     return spots
@@ -238,7 +266,6 @@ export default function Home() {
         return true;
       })
       .map((spot) => {
-        // กรองให้หมุดบนแผนที่แสดงเฉพาะชนิดสัตว์ที่กำลังเลือกใน Filter
         const cats = Array.isArray(spot.category)
           ? spot.category
           : [spot.category];
@@ -273,7 +300,7 @@ export default function Home() {
       router.push("/login");
       return;
     }
-    
+
     setAddSpotCoord({ lat, lng, address });
     setIsOpen(true);
   };
@@ -325,29 +352,48 @@ export default function Home() {
         : undefined;
 
     try {
-      // 1. ขอ Presigned URL และอัปโหลดรูปแต่ละไฟล์ขึ้น Cloudflare R2
+      // ทยอยขอ Presigned URL และอัปโหลดรูปขึ้น R2 ทีละ 4 รูป
       const uploadedPhotoUrls: string[] = [];
+      const batchSize = 4;
 
-      for (const file of newSpotData.images) {
-        const presignRes = await axiosInstance.post(
-          "/api/spots/presigned-url",
-          {
-            fileName: file.name,
-            fileType: file.type,
-          },
+      for (let i = 0; i < newSpotData.images.length; i += batchSize) {
+        const batch = newSpotData.images.slice(i, i + batchSize);
+
+        const batchUrls = await Promise.all(
+          batch.map(async (file) => {
+            const presignRes = await axiosInstance.post(
+              "/api/spots/presigned-url",
+              {
+                fileSize: file.size,
+                fileType: file.type,
+              },
+            );
+
+            const data = presignRes.data?.data;
+            if (!data?.uploadUrl || !data?.publicUrl) {
+              throw new Error("ไม่ได้รับ URL สำหรับอัปโหลดจากเซิร์ฟเวอร์");
+            }
+
+            const uploadRes = await fetch(data.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+              },
+              body: file,
+            });
+
+            if (!uploadRes.ok) {
+              const errText = await uploadRes.text();
+              console.error("R2 Upload Failed:", uploadRes.status, errText);
+              throw new Error(
+                `Failed to upload image to R2 (${uploadRes.status})`,
+              );
+            }
+            return data.publicUrl as string;
+          }),
         );
 
-        const { uploadUrl, publicUrl } = presignRes.data.data;
-
-        await fetch(uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": file.type,
-          },
-          body: file,
-        });
-
-        uploadedPhotoUrls.push(publicUrl);
+        uploadedPhotoUrls.push(...batchUrls);
       }
 
       // 2. เตรียมอาเรย์ของ animalId สำหรับส่งให้ Backend
@@ -370,16 +416,18 @@ export default function Home() {
         lng: newSpotData.lng,
         photoUrls: uploadedPhotoUrls,
         animals: mappedAnimals,
-        date: new Date().toISOString(),
+        date: newSpotData.date ? newSpotData.date.toISOString() : null,
       });
 
       const rawCreated = response.data?.data || response.data;
       const createdSpot = mapRawSpotToPinData(
         {
           ...rawCreated,
-          photos: uploadedPhotoUrls,
+          photos: rawCreated.photos?.length
+            ? rawCreated.photos
+            : uploadedPhotoUrls,
           animals: newSpotData.animals,
-          user: rawCreated.user,
+          user: rawCreated.user || user,
         },
         animalPinMap,
       );
@@ -388,9 +436,19 @@ export default function Home() {
       setShowSpotCard(true);
       toast.success(response.data?.message || "Spot created successfully!");
     } catch (err) {
-      console.error("Failed to create spot:", err);
+
+      if (isAxiosError(err) && err.response?.status === 401) {
+        setUser(null);
+        toast.error("Session expired. Please log in again.");
+        throw err;
+      }
       if (isAxiosError(err) && err.response?.data?.message) {
         toast.error(err.response.data.message);
+      } 
+      else if (err instanceof Error && err.message.includes("R2")) {
+        toast.error(
+          "Image upload to Cloudflare R2 failed. Check CORS/R2 settings.",
+        );
       } else {
         toast.error("Unable to save spot. Please check your connection.");
       }
@@ -489,12 +547,12 @@ export default function Home() {
       />
 
       {/* 4. Full-Screen Photo Viewer Modal (Mobile only) */}
-        <SpotPhotoViewerModal
-          isOpen={photoViewerOpen}
-          onClose={() => setPhotoViewerOpen(false)}
-          images={activePhotoList}
-          initialIndex={initialPhotoIndex}
-        />
+      <SpotPhotoViewerModal
+        isOpen={photoViewerOpen}
+        onClose={() => setPhotoViewerOpen(false)}
+        images={activePhotoList}
+        initialIndex={initialPhotoIndex}
+      />
 
       {/* 5. Interactive Leaflet Map */}
       <div className="flex-1 w-full relative h-full">

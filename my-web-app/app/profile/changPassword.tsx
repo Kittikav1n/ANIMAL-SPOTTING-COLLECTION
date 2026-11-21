@@ -54,7 +54,7 @@ export default function ChangePassword({ avatar, onBack, onSuccess, onBusyChange
             return;
         }
 
-        const ownerID = user.userID;
+        const ownerID = user.userId;
         submittingRef.current = true;
         setIsSaving(true);
         onBusyChange(true);
@@ -67,7 +67,7 @@ export default function ChangePassword({ avatar, onBack, onSuccess, onBusyChange
         } catch (error) {
             if (isAxiosError(error) && error.response?.status === 401) {
                 setPasswords(EMPTY_PASSWORDS);
-                setUser((current) => current?.userID === ownerID ? null : current);
+                setUser((current) => current?.userId === ownerID ? null : current);
             } else {
                 const data = isAxiosError(error) ? error.response?.data : undefined;
                 const errorMessage = typeof data?.message === "string" ? data.message : "Unable to change password. Please try again.";
