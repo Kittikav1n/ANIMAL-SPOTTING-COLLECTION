@@ -465,7 +465,6 @@ function CollectionContent() {
       await axiosInstance.delete(`/api/spots/${deletingSpot.id}`, {
         withCredentials: true,
       });
-
       // ลบออกจาก State หน้าจอทันที
       setSpots((prev) => prev?.filter((s) => s.id !== deletingSpot.id) ?? null);
       if (selectedSpotId === deletingSpot.id) {
@@ -475,9 +474,7 @@ function CollectionContent() {
       setDeletingSpot(null);
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 401) {
-        setUser((current) =>
-          current?.userId === user?.userId ? null : current,
-        );
+        setUser(null);
       }
       toast.error("Failed to delete spot. Please try again.");
     } finally {

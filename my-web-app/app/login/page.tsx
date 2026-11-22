@@ -9,6 +9,7 @@ import { ArrowLeft, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 import {
     InputGroup,
     InputGroupAddon,
@@ -52,6 +53,7 @@ export default function Login() {
                 return;
             }
             setUser(result.data);
+            toast.success("Login successful. Hopefully enjoy")
             router.replace("/map");
         } catch (error) {
             if (isAxiosError(error) && error.response) {

@@ -12,10 +12,12 @@ export interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
+  // React.SetStateAction<AuthUser null |> -> บอกค่า format ที่รับได้ 2 อย่าง setUser(value), setUser((prev) =>)
+  // React.Dispatch<...> บอกว่ามันเป็นคำสั่ง update return void
   setUser: React.Dispatch<React.SetStateAction<AuthUser | null>>;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
-}
+}   
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -62,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 // Custom Hook สำหรับเรียกใช้ในหน้าต่างๆ
 export function useAuth() {
+  // ตัวต่อตรงกลับมาที่ Authconetxt ผ่าน context ที่ return ไป
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");

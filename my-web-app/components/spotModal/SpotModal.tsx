@@ -212,6 +212,7 @@ export default function SpotModal({
     }
   };
 
+  // รับ boolean มาจาก handleOpenChange ใน dialog
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setView("main");
@@ -270,6 +271,12 @@ export default function SpotModal({
   const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = ""; // รีเซ็ต input เพื่อให้เลือกรูปเดิมซ้ำได้
+    
+    const remainingSlots = MAX_PHOTOS - selectedImages.length;
+    if (remainingSlots <= 0) {
+      toast.warning(`Maximum ${MAX_PHOTOS} photos allowed.`);
+      return;
+    }
 
     if (files.length === 0) return;
     // extract มาเเค่เฉพาะ spotimage type: new
@@ -303,14 +310,6 @@ export default function SpotModal({
     }
 
     if (validItems.length > 0) {
-      const remainingSlots = MAX_PHOTOS - selectedImages.length;
-
-      if (remainingSlots <= 0) {
-        validItems.forEach((item) => URL.revokeObjectURL(item.previewUrl));
-        toast.warning(`Maximum ${MAX_PHOTOS} photos allowed.`);
-        return;
-      }
-
       const accepted = validItems.slice(0, remainingSlots);
       validItems.slice(remainingSlots).forEach((item) => {
         URL.revokeObjectURL(item.previewUrl);
@@ -326,6 +325,7 @@ export default function SpotModal({
   };
 
   return (
+    // เมื่อเกิด onopenchange ใน dialog ส่ง false มาทำ handleOpenChange(ตัวดัก listener ในการปิด) ต่อ
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
         className={`
@@ -410,6 +410,7 @@ export default function SpotModal({
                     className="w-full rounded-xl border-border bg-card text-sm h-11 focus-visible:ring-secondary"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
+                    // สั่ง log ปุ่ม
                     disabled={isSubmitting}
                   />
                 </div>
@@ -445,7 +446,6 @@ export default function SpotModal({
                       {selectedImages.slice(0, 6).map((file, index) => {
                         const mobileRemaining = selectedImages.length - 5;
                         const desktopRemaining = selectedImages.length - 6;
-
                         return (
                           <div
                             key={index}
@@ -605,6 +605,7 @@ export default function SpotModal({
 
         {/* หน้าต่างย่อย Edit Image เปิดเมื่อกด Edit All */}
         {isEditingImages && (
+          // absolute + inset-0 ขยายเต็มหน้ากล่องเเม่
           <div className="absolute inset-0 bg-card z-50 flex flex-col p-4 md:p-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <button
