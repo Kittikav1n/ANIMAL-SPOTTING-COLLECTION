@@ -24,14 +24,18 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
+// dynamic import lazy load เเค่เฉพาะส่วนที่ต้องใช้เพราะเเผนที่มันใหญ่มาก
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
+  // ปิด server-side rendering
   ssr: false,
+  // เเสดงผลเป็น loading
   loading: () => (
     <div className="flex items-center justify-center h-full w-full">
       Loading Map...
     </div>
   ),
 });
+
 
 interface ExtendedAnimalOption extends AnimalCategoryOption {
   animalId?: number;
@@ -76,11 +80,14 @@ export default function Home() {
   const [backendAnimals, setBackendAnimals] = useState<ExtendedAnimalOption[]>(
     [],
   );
+
   const [isSyncing, setIsSyncing] = useState(false);
 
   // แปลงข้อมูลดิบจาก Backend ให้ตรงกับ SpotPinData
   const mapRawSpotToPinData = (
+    // ข้อมูลจาก bn
     raw: any,
+    // Dictionary (animals, pinName)
     pinLookup: Record<string, string>,
   ): SpotPinData => {
     const lat = Number(raw.lat ?? raw.latitude ?? raw.spotLat);
@@ -151,9 +158,9 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // เอาไว้เช็คตอนเราเปลี่ยนหน้า ให้การทำงานเเบบ asynchronus ไม่ต้องเอามา update state
     let isMounted = true;
     setIsSyncing(true);
-
     const loadData = async () => {
       try {
         // 1. ดึงข้อมูลสัตว์และ animalImagePin จาก Backend (GET /api/animals)
@@ -182,6 +189,7 @@ export default function Home() {
         // 2. ดึงข้อมูล Spots ทั้งหมด (GET /api/spots)
         const spotRes = await axiosInstance.get("/api/spots");
         const rawSpots = spotRes.data?.data || spotRes.data || [];
+        console.log("rawSpotted: ", rawSpots);
         if (isMounted && Array.isArray(rawSpots) && rawSpots.length > 0) {
           const formattedSpots = rawSpots
             .map((raw: any) => mapRawSpotToPinData(raw, pinLookup))
@@ -198,15 +206,14 @@ export default function Home() {
         if (isMounted) setIsSyncing(false);
       }
     };
-
     loadData();
-
     return () => {
+      // ตอนที่เปลี่ยนหน้าก็จะเข้ามาเปลี่ยน isMounted return ก่อนเปลี่ยนหน้าทิ้ง
       isMounted = false;
     };
-  }, [user]);
+  }, []);
 
-  // รายการหมวดหมู่สัตว์ดึงจาก Backend เท่านั้น
+  // รายการหมวดหมู่สัตว์ที่เอาไปเเสดงเป็น badge
   const dynamicFilterChips: AnimalChipItem[] = useMemo(() => {
     const topAnimals: AnimalChipItem[] = backendAnimals
       .slice(0, 5)
@@ -236,20 +243,22 @@ export default function Home() {
   const filteredSpots = useMemo(() => {
     return spots
       .filter((spot) => {
+        // เก็บ cat ใน spot ลงตัวเเปร
         const spotCats = Array.isArray(spot.category)
           ? spot.category.map((c) => c.toLowerCase())
           : [String(spot.category).toLowerCase()];
 
         // 1. Drawer Multi-select Filter
         if (selectedCategories.length > 0) {
+          // return boolean มัน matches กับ ใน drawer ซักตัวมั้ย
           const matchesDrawer = selectedCategories.some((sel) =>
             spotCats.includes(sel.toLowerCase()),
           );
           if (!matchesDrawer) return false;
         }
-
         // 2. Chip Filter (e.g. "Cat", "Dog")
         if (activeAnimal !== "ALL") {
+          // มัน match กับใน badge มั้ย
           const chipCat = activeAnimal.trim().toLowerCase();
           if (!spotCats.includes(chipCat)) return false;
         }
@@ -262,31 +271,34 @@ export default function Home() {
           const matchesAuthor = spot.author.name.toLowerCase().includes(q);
           if (!matchesTitle && !matchesDesc && !matchesAuthor) return false;
         }
-
         return true;
       })
       .map((spot) => {
+        // เก็บ category ใน spots เป็น array
         const cats = Array.isArray(spot.category)
           ? spot.category
           : [spot.category];
         const filteredCats = cats.filter((cat) => {
+          // cat ใน spot
           const lower = cat.toLowerCase();
           if (
             activeAnimal !== "ALL" &&
+            // ไม่ตรงกับ badge filter
             lower !== activeAnimal.trim().toLowerCase()
           ) {
             return false;
           }
           if (
             selectedCategories.length > 0 &&
+            // ถ้ามันไม่มีตัวไหนใน catspot ที่เท่ากับใน drawerCat เลยก้ false
             !selectedCategories.some((sel) => sel.toLowerCase() === lower)
           ) {
             return false;
           }
           return true;
         });
-
         return {
+          // คืน spot ที่ตรงตาม filter เเละ 
           ...spot,
           category: filteredCats.length > 0 ? filteredCats : cats,
         };
@@ -300,7 +312,6 @@ export default function Home() {
       router.push("/login");
       return;
     }
-
     setAddSpotCoord({ lat, lng, address });
     setIsOpen(true);
   };
@@ -368,7 +379,6 @@ export default function Home() {
                 fileType: file.type,
               },
             );
-
             const data = presignRes.data?.data;
             if (!data?.uploadUrl || !data?.publicUrl) {
               throw new Error("ไม่ได้รับ URL สำหรับอัปโหลดจากเซิร์ฟเวอร์");
@@ -399,15 +409,17 @@ export default function Home() {
       // 2. เตรียมอาเรย์ของ animalId สำหรับส่งให้ Backend
       const mappedAnimals = newSpotData.animals
         .map((a: any) => {
+          // เก็บเป็น object
           if (a.animalId) return { animalId: a.animalId };
           const found = backendAnimals.find(
             (ba) => ba.name.toLowerCase() === a.name.toLowerCase(),
           );
           return found?.animalId ? { animalId: found.animalId } : null;
         })
+        // ตัดค่า null, undefined
         .filter(Boolean);
 
-      // 3. ส่ง JSON ไปบันทึก Spot ลง Database (POST /api/spots)
+      // axios เเปลง obj ให้เปลี่ยนเป็น json.stringify เเล้วส่งไป bn เเปะ header Content-Type: application/json ให้พร้อม
       const response = await axiosInstance.post("/api/spots", {
         title: finalTitle,
         description: newSpotData.description,
@@ -418,8 +430,9 @@ export default function Home() {
         animals: mappedAnimals,
         date: newSpotData.date ? newSpotData.date.toISOString() : null,
       });
-
+      // หากเราไม่มี axios ต้องเเปลง json กลับมาเป็น obj ผ่าน res.json ก่อน
       const rawCreated = response.data?.data || response.data;
+      // format spots จาก bn เตรียมส่งไป pin
       const createdSpot = mapRawSpotToPinData(
         {
           ...rawCreated,
@@ -436,7 +449,7 @@ export default function Home() {
       setShowSpotCard(true);
       toast.success(response.data?.message || "Spot created successfully!");
     } catch (err) {
-
+      // error ผ่าน axios เป็น status ผ่าน bn
       if (isAxiosError(err) && err.response?.status === 401) {
         setUser(null);
         toast.error("Session expired. Please log in again.");
@@ -444,7 +457,8 @@ export default function Home() {
       }
       if (isAxiosError(err) && err.response?.data?.message) {
         toast.error(err.response.data.message);
-      } 
+      }
+      // ถ้ามันเป็น error ที่มาจาก js เอง ไม่เกี่ยวกับ api
       else if (err instanceof Error && err.message.includes("R2")) {
         toast.error(
           "Image upload to Cloudflare R2 failed. Check CORS/R2 settings.",
@@ -452,7 +466,6 @@ export default function Home() {
       } else {
         toast.error("Unable to save spot. Please check your connection.");
       }
-
       throw err;
     }
   };
